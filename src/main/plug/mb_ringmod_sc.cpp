@@ -65,9 +65,77 @@ namespace lsp
             vChannels       = NULL;
             vBuffer         = NULL;
 
-            pBypass         = NULL;
+            // Pre-mixing ports
+            sPremix.fInToSc     = GAIN_AMP_M_INF_DB;
+            sPremix.fInToLink   = GAIN_AMP_M_INF_DB;
+            sPremix.fLinkToIn   = GAIN_AMP_M_INF_DB;
+            sPremix.fLinkToSc   = GAIN_AMP_M_INF_DB;
+            sPremix.fScToIn     = GAIN_AMP_M_INF_DB;
+            sPremix.fScToLink   = GAIN_AMP_M_INF_DB;
 
-            pData           = NULL;
+            for (size_t i=0; i<2; ++i)
+            {
+                sPremix.vIn[i]      = NULL;
+                sPremix.vOut[i]     = NULL;
+                sPremix.vSc[i]      = NULL;
+                sPremix.vLink[i]    = NULL;
+                sPremix.vTmpIn[i]   = NULL;
+                sPremix.vTmpSc[i]   = NULL;
+                sPremix.vTmpLink[i] = NULL;
+            }
+
+            sPremix.pInToSc     = NULL;
+            sPremix.pInToLink   = NULL;
+            sPremix.pLinkToIn   = NULL;
+            sPremix.pLinkToSc   = NULL;
+            sPremix.pScToIn     = NULL;
+            sPremix.pScToLink   = NULL;
+
+            pBypass             = NULL;
+            pGainIn             = NULL;
+            pGainSc             = NULL;
+            pGainOut            = NULL;
+            pOutIn              = NULL;
+            pOutSc              = NULL;
+            pActive             = NULL;
+            pType               = NULL;
+            pZoom               = NULL;
+            pReactivity         = NULL;
+            pShift              = NULL;
+            pFilterMesh         = NULL;
+            pMeterMesh          = NULL;
+            pSource             = NULL;
+
+            // Bind split ports
+            lsp_trace("Binding split ports");
+            for (size_t i=0; i<meta::mb_ringmod_sc::BANDS_MAX-1; ++i)
+            {
+                split_t *s          = &vSplits[i];
+
+                s->pEnabled         = NULL;
+                s->pFreq            = NULL;
+            }
+
+            // Bind split ports
+            lsp_trace("Binding band ports");
+            for (size_t i=0; i<meta::mb_ringmod_sc::BANDS_MAX; ++i)
+            {
+                band_t *b           = &vBands[i];
+
+                b->pSolo            = NULL;
+                b->pMute            = NULL;
+                b->pEnable          = NULL;
+                b->pLookahead       = NULL;
+                b->pHold            = NULL;
+                b->pRelease         = NULL;
+                b->pDuck            = NULL;
+                b->pAmount          = NULL;
+                b->pFreqEnd         = NULL;
+                if (nChannels > 1)
+                    b->pStereoLink      = NULL;
+            }
+
+            pData               = NULL;
         }
 
         mb_ringmod_sc::~mb_ringmod_sc()
@@ -119,8 +187,75 @@ namespace lsp
             for (size_t i=0; i<nChannels; ++i)
                 BIND_PORT(vChannels[i].pSc);
 
+            // Bind stereo link
+            SKIP_PORT("Stereo link name");
+            for (size_t i=0; i<nChannels; ++i)
+                BIND_PORT(vChannels[i].pShmIn);
+
+            // Pre-mixing ports
+            lsp_trace("Binding pre-mix ports");
+            SKIP_PORT("Show premix overlay");
+            BIND_PORT(sPremix.pInToLink);
+            BIND_PORT(sPremix.pLinkToIn);
+            BIND_PORT(sPremix.pLinkToSc);
+            BIND_PORT(sPremix.pInToSc);
+            BIND_PORT(sPremix.pScToIn);
+            BIND_PORT(sPremix.pScToLink);
+
             // Bind bypass
+            lsp_trace("Binding common ports");
             BIND_PORT(pBypass);
+            BIND_PORT(pGainIn);
+            BIND_PORT(pGainSc);
+            BIND_PORT(pGainOut);
+            BIND_PORT(pOutIn);
+            BIND_PORT(pOutSc);
+            BIND_PORT(pActive);
+            BIND_PORT(pType);
+            BIND_PORT(pZoom);
+            SKIP_PORT("Band filter curves");
+            BIND_PORT(pReactivity);
+            BIND_PORT(pShift);
+            BIND_PORT(pFilterMesh);
+            BIND_PORT(pMeterMesh);
+
+            if (nChannels > 1)
+                BIND_PORT(pSource);
+
+            // Bind split ports
+            lsp_trace("Binding split ports");
+            for (size_t i=0; i<meta::mb_ringmod_sc::BANDS_MAX-1; ++i)
+            {
+                split_t *s          = &vSplits[i];
+
+                BIND_PORT(s->pEnabled);
+                BIND_PORT(s->pFreq);
+            }
+
+            // Bind split ports
+            lsp_trace("Binding band ports");
+            for (size_t i=0; i<meta::mb_ringmod_sc::BANDS_MAX; ++i)
+            {
+                band_t *b           = &vBands[i];
+
+                BIND_PORT(b->pSolo);
+                BIND_PORT(b->pMute);
+                BIND_PORT(b->pEnable);
+                BIND_PORT(b->pLookahead);
+                BIND_PORT(b->pHold);
+                BIND_PORT(b->pRelease);
+                BIND_PORT(b->pDuck);
+                BIND_PORT(b->pAmount);
+                BIND_PORT(b->pFreqEnd);
+                if (nChannels > 1)
+                    BIND_PORT(b->pStereoLink);
+
+                for (size_t j=0; j<nChannels; ++j)
+                {
+                    channel_t *c        = &vChannels[j];
+                    BIND_PORT(c->pReduction[i]);
+                }
+            }
         }
 
         void mb_ringmod_sc::destroy()

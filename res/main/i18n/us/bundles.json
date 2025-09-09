@@ -1,6 +1,6 @@
 {
 	"mb_ringmod_sc": {
-		"name": "Plugin Template",
+		"name": "Multiband Ring Modulated Sidechain",
 		"description": "This plugin allows to apply a specific multiban sidechaining technique based on\nring modulation and subtraction of the original signal."
 	}
 }
