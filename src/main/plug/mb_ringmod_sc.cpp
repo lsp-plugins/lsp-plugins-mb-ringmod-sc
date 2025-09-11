@@ -20,21 +20,24 @@
  */
 
 #include <lsp-plug.in/common/alloc.h>
+#include <lsp-plug.in/common/bits.h>
 #include <lsp-plug.in/common/debug.h>
 #include <lsp-plug.in/dsp/dsp.h>
+#include <lsp-plug.in/dsp-units/misc/envelope.h>
+#include <lsp-plug.in/dsp-units/misc/windows.h>
 #include <lsp-plug.in/dsp-units/units.h>
 #include <lsp-plug.in/plug-fw/meta/func.h>
 #include <lsp-plug.in/shared/debug.h>
 
 #include <private/plugins/mb_ringmod_sc.h>
 
-/* The size of temporary buffer for audio processing */
-#define BUFFER_SIZE         0x1000U
-
 namespace lsp
 {
     namespace plugins
     {
+        /* The size of temporary buffer for audio processing */
+        static constexpr size_t BUFFER_SIZE         = 0x200;
+
         //---------------------------------------------------------------------
         // Plugin factory
         static const meta::plugin_t *plugins[] =
@@ -99,6 +102,8 @@ namespace lsp
             pOutSc              = NULL;
             pActive             = NULL;
             pType               = NULL;
+            pMode               = NULL;
+            pSlope              = NULL;
             pZoom               = NULL;
             pReactivity         = NULL;
             pShift              = NULL;
@@ -162,9 +167,40 @@ namespace lsp
             vChannels               = advance_ptr_bytes<channel_t>(ptr, szof_channels);
             vBuffer                 = advance_ptr_bytes<float>(ptr, buf_sz);
 
+            // Initialize analyzer
+            if (!sAnalyzer.init(nChannels * 2, meta::mb_ringmod_sc::FFT_RANK,
+                MAX_SAMPLE_RATE, meta::mb_ringmod_sc::REFRESH_RATE))
+                return;
+            sAnalyzer.set_rank(meta::mb_ringmod_sc::FFT_RANK);
+            sAnalyzer.set_activity(false);
+            sAnalyzer.set_envelope(dspu::envelope::WHITE_NOISE);
+            sAnalyzer.set_window(meta::mb_ringmod_sc::FFT_WINDOW);
+            sAnalyzer.set_rate(meta::mb_ringmod_sc::REFRESH_RATE);
+
             for (size_t i=0; i < nChannels; ++i)
             {
                 channel_t *c            = &vChannels[i];
+
+                c->sBypass.construct();
+                c->sDryDelay.construct();
+                c->sCrossover.construct();
+                c->sScCrossover.construct();
+                c->sFFTCrossover.construct();
+                c->sFFTScCrossover.construct();
+
+                if (!c->sCrossover.init(meta::mb_ringmod_sc::BANDS_MAX, BUFFER_SIZE))
+                    return;
+                if (!c->sScCrossover.init(meta::mb_ringmod_sc::BANDS_MAX, BUFFER_SIZE))
+                    return;
+
+                for (size_t j=0; j<meta::mb_ringmod_sc::BANDS_MAX; ++j)
+                {
+                    ch_band_t *cb   = &c->vBands[j];
+
+                    cb->sPreDelay.destroy();
+                    cb->sPostDelay.destroy();
+                    cb->sScDelay.destroy();
+                }
 
                 c->pIn                  = NULL;
                 c->pOut                 = NULL;
@@ -212,6 +248,8 @@ namespace lsp
             BIND_PORT(pOutSc);
             BIND_PORT(pActive);
             BIND_PORT(pType);
+            BIND_PORT(pMode);
+            BIND_PORT(pSlope);
             BIND_PORT(pZoom);
             SKIP_PORT("Band filter curves");
             BIND_PORT(pReactivity);
@@ -253,7 +291,9 @@ namespace lsp
                 for (size_t j=0; j<nChannels; ++j)
                 {
                     channel_t *c        = &vChannels[j];
-                    BIND_PORT(c->pReduction[i]);
+                    ch_band_t *cb       = &c->vBands[i];
+
+                    BIND_PORT(cb->pReduction);
                 }
             }
         }
@@ -266,13 +306,32 @@ namespace lsp
 
         void mb_ringmod_sc::do_destroy()
         {
+            // Destroy analyzer
+            sAnalyzer.destroy();
+
             // Destroy channels
             if (vChannels != NULL)
             {
-//                for (size_t i=0; i<nChannels; ++i)
-//                {
-//                    channel_t *c    = &vChannels[i];
-//                }
+                for (size_t i=0; i<nChannels; ++i)
+                {
+                    channel_t *c    = &vChannels[i];
+
+                    c->sBypass.destroy();
+                    c->sDryDelay.destroy();
+                    c->sCrossover.destroy();
+                    c->sScCrossover.destroy();
+                    c->sFFTCrossover.destroy();
+                    c->sFFTScCrossover.destroy();
+
+                    for (size_t j=0; j<meta::mb_ringmod_sc::BANDS_MAX; ++j)
+                    {
+                        ch_band_t *cb   = &c->vBands[j];
+
+                        cb->sPreDelay.destroy();
+                        cb->sPostDelay.destroy();
+                        cb->sScDelay.destroy();
+                    }
+                }
                 vChannels   = NULL;
             }
 
@@ -286,20 +345,78 @@ namespace lsp
             }
         }
 
+        size_t mb_ringmod_sc::select_fft_rank(size_t sample_rate)
+        {
+            const size_t k = (sample_rate + meta::mb_ringmod_sc::FFT_XOVER_FREQ_MIN/2) / meta::mb_ringmod_sc::FFT_XOVER_FREQ_MIN;
+            const size_t n = int_log2(k);
+            return meta::mb_ringmod_sc::FFT_XOVER_RANK_MIN + n;
+        }
+
         void mb_ringmod_sc::update_sample_rate(long sr)
         {
-            // TODO
-            // Update sample rate for the bypass processors
-//            for (size_t i=0; i<nChannels; ++i)
-//            {
-//                channel_t *c    = &vChannels[i];
-//            }
+            const size_t fft_rank       = select_fft_rank(sr);
+            const size_t in_max_delay   = dspu::millis_to_samples(sr, meta::mb_ringmod_sc::LOOKAHEAD_MAX) + BUFFER_SIZE;
+            const size_t sc_max_delay   =
+                in_max_delay +
+                dspu::millis_to_samples(sr, meta::mb_ringmod_sc::DUCK_MAX) ;
+
+            // Update analyzer's sample rate
+            sAnalyzer.set_sample_rate(sr);
+
+            // Update channels
+            for (size_t i=0; i<nChannels; ++i)
+            {
+                channel_t *c = &vChannels[i];
+
+                c->sBypass.init(sr);
+                c->sDryDelay.init(in_max_delay);
+                c->sCrossover.set_sample_rate(sr);
+                c->sScCrossover.set_sample_rate(sr);
+                c->sFFTCrossover.set_sample_rate(sr);
+                c->sFFTScCrossover.set_sample_rate(sr);
+
+                // Need to re-initialize FFT crossovers?
+                if (fft_rank != c->sFFTCrossover.rank())
+                {
+                    c->sFFTCrossover.init(fft_rank, meta::mb_ringmod_sc::BANDS_MAX);
+                    c->sFFTScCrossover.init(fft_rank, meta::mb_ringmod_sc::BANDS_MAX);
+                    for (size_t j=0; j<meta::mb_ringmod_sc::BANDS_MAX; ++j)
+                    {
+                        c->sFFTCrossover.set_handler(j, process_band, this, c);
+                        c->sFFTScCrossover.set_handler(j, process_sc_band, this, c);
+                    }
+                    c->sFFTCrossover.set_phase(i);
+                    c->sFFTScCrossover.set_phase(i);
+                }
+
+                for (size_t j=0; j<meta::mb_ringmod_sc::BANDS_MAX; ++j)
+                {
+                    ch_band_t *cb   = &c->vBands[j];
+
+                    cb->sPreDelay.init(in_max_delay);
+                    cb->sPostDelay.init(in_max_delay);
+                    cb->sScDelay.init(sc_max_delay);
+
+                    c->sCrossover.set_handler(j, process_band, this, c);
+                    c->sScCrossover.set_handler(j, process_sc_band, this, c);
+                }
+            }
         }
 
         void mb_ringmod_sc::update_settings()
         {
             // TODO
 //            bool bypass             = pBypass->value() >= 0.5f;
+        }
+
+        void mb_ringmod_sc::process_band(void *object, void *subject, size_t band, const float *data, size_t sample, size_t count)
+        {
+            // TODO
+        }
+
+        void mb_ringmod_sc::process_sc_band(void *object, void *subject, size_t band, const float *data, size_t sample, size_t count)
+        {
+            // TODO
         }
 
         void mb_ringmod_sc::process(size_t samples)

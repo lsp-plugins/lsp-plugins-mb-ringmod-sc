@@ -25,6 +25,8 @@
 #include <lsp-plug.in/plug-fw/meta/types.h>
 #include <lsp-plug.in/plug-fw/const.h>
 
+#include <lsp-plug.in/dsp-units/misc/windows.h>
+
 namespace lsp
 {
     //-------------------------------------------------------------------------
@@ -35,6 +37,11 @@ namespace lsp
         {
             static constexpr size_t BANDS_MAX           = 8;
             static constexpr size_t FFT_MESH_POINTS     = 640;
+            static constexpr size_t FFT_XOVER_RANK_MIN  = 12;
+            static constexpr size_t FFT_XOVER_FREQ_MIN  = 44100;
+            static constexpr size_t FFT_WINDOW          = dspu::windows::HANN;
+            static constexpr size_t FFT_RANK            = 13;
+            static constexpr size_t REFRESH_RATE        = 20;
 
             static constexpr float  HOLD_MIN            = 0.0f;
             static constexpr float  HOLD_MAX            = 10.0f;

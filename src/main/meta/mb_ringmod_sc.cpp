@@ -61,6 +61,23 @@ namespace lsp
             { NULL, NULL }
         };
 
+        static const port_item_t mb_ringmod_sc_modes[] =
+        {
+            { "Classic",        "multiband.classic"         },
+            { "Linear Phase",   "multiband.linear_phase"    },
+            { NULL, NULL }
+        };
+
+        static const port_item_t mb_ringmod_sc_slopes[] =
+        {
+            { "off",            "eq.slope.off"              },
+            { "12 dB/oct",      "eq.slope.12dbo"            },
+            { "24 dB/oct",      "eq.slope.24dbo"            },
+            { "36 dB/oct",      "eq.slope.36dbo"            },
+            { "48 dB/oct",      "eq.slope.48dbo"            },
+            { NULL, NULL }
+        };
+
     #define RMOD_COMMON(channels) \
         BYPASS, \
         IN_GAIN, \
@@ -70,7 +87,8 @@ namespace lsp
         SWITCH("out_sc", "Output sidechain signal", "Out SC", 1), \
         SWITCH("active", "Sidechain processing active", "Active", 1), \
         COMBO("type", "Sidechain type", "Type", 1, ringmod_sc_types), \
-        \
+        COMBO("mode", "Crossover mode", "Mode", 0, mb_ringmod_sc_modes), \
+        COMBO("slope", "Crossover slope", "Slope", 2, mb_ringmod_sc_slopes), \
         LOG_CONTROL("zoom", "Graph zoom", "Zoom", U_GAIN_AMP, mb_ringmod_sc::ZOOM), \
         SWITCH("flt", "Band filter curves", "Show filters", 1.0f), \
         LOG_CONTROL("react", "FFT reactivity", "Reactivity", U_MSEC, mb_ringmod_sc::REACT_TIME), \

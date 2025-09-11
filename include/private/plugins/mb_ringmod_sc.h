@@ -22,7 +22,11 @@
 #ifndef PRIVATE_PLUGINS_MB_RINGMOD_SC_H_
 #define PRIVATE_PLUGINS_MB_RINGMOD_SC_H_
 
+#include <lsp-plug.in/dsp-units/util/Analyzer.h>
+#include <lsp-plug.in/dsp-units/util/Crossover.h>
 #include <lsp-plug.in/dsp-units/util/Delay.h>
+#include <lsp-plug.in/dsp-units/util/FFTCrossover.h>
+#include <lsp-plug.in/dsp-units/util/RingBuffer.h>
 #include <lsp-plug.in/dsp-units/ctl/Bypass.h>
 #include <lsp-plug.in/plug-fw/plug.h>
 #include <private/meta/mb_ringmod_sc.h>
@@ -90,19 +94,35 @@ namespace lsp
                     plug::IPort        *pStereoLink;            // Stereo linking
                 } band_t;
 
+                typedef struct ch_band_t
+                {
+                    dspu::Delay         sPreDelay;              // Pre-delay for band-limited signal
+                    dspu::Delay         sPostDelay;             // Post-delay for band-limited signal
+                    dspu::RingBuffer    sScDelay;               // Delay for sidechain
+
+                    plug::IPort        *pReduction;             // Reduction level meters
+                } ch_band_t;
+
                 typedef struct channel_t
                 {
+                    dspu::Bypass        sBypass;                // Bypass
+                    dspu::Delay         sDryDelay;              // Delay for dry (unprocessed) signal
+                    dspu::Crossover     sCrossover;             // Crossover
+                    dspu::Crossover     sScCrossover;           // Sidechain Crossover
+                    dspu::FFTCrossover  sFFTCrossover;          // FFT crossover
+                    dspu::FFTCrossover  sFFTScCrossover;        // Sidechain FFT crossover
+                    ch_band_t           vBands[meta::mb_ringmod_sc::BANDS_MAX]; // Band processors
+
                     plug::IPort        *pIn;                    // Input port
                     plug::IPort        *pOut;                   // Output port
                     plug::IPort        *pSc;                    // Sidechain port
                     plug::IPort        *pShmIn;                 // Shared memory link input
-
-                    plug::IPort        *pReduction[meta::mb_ringmod_sc::BANDS_MAX]; // Reduction level meters
                 } channel_t;
 
             protected:
                 size_t              nChannels;              // Number of channels
                 channel_t          *vChannels;              // Delay channels
+                dspu::Analyzer      sAnalyzer;              // Analyzer
                 split_t             vSplits[meta::mb_ringmod_sc::BANDS_MAX - 1];    // Band splits
                 band_t              vBands[meta::mb_ringmod_sc::BANDS_MAX];         // Bands
                 float              *vBuffer;                // Temporary buffer for audio processing
@@ -116,6 +136,8 @@ namespace lsp
                 plug::IPort        *pOutSc;                 // Output sidechain signal
                 plug::IPort        *pActive;                // Activity
                 plug::IPort        *pType;                  // Type of sidechain
+                plug::IPort        *pMode;                  // Mode of sidechain
+                plug::IPort        *pSlope;                 // Slope of sidechain
                 plug::IPort        *pZoom;                  // Zoom
                 plug::IPort        *pReactivity;            // FFT Reactivity
                 plug::IPort        *pShift;                 // FFT shift
@@ -124,6 +146,11 @@ namespace lsp
                 plug::IPort        *pSource;                // Sidechain source
 
                 uint8_t            *pData;                  // Allocated data
+
+            protected:
+                static void         process_band(void *object, void *subject, size_t band, const float *data, size_t sample, size_t count);
+                static void         process_sc_band(void *object, void *subject, size_t band, const float *data, size_t sample, size_t count);
+                static size_t       select_fft_rank(size_t sample_rate);
 
             protected:
                 void                do_destroy();
