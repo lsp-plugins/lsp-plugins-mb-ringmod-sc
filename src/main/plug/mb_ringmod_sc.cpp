@@ -144,8 +144,7 @@ namespace lsp
                 b->pDuck            = NULL;
                 b->pAmount          = NULL;
                 b->pFreqEnd         = NULL;
-                if (nChannels > 1)
-                    b->pStereoLink      = NULL;
+                b->pStereoLink      = NULL;
             }
 
             pData               = NULL;
