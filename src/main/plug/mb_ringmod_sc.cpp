@@ -845,14 +845,14 @@ namespace lsp
 
                 // For both channels: find the minimum one and try to raise to maximum one
                 // proportionally to the stereo link setup
-                for (size_t i=0; i<samples; ++i)
+                for (size_t j=0; j<samples; ++j)
                 {
-                    const float ls      = lbuf[i];
-                    const float rs      = rbuf[i];
+                    const float ls      = lbuf[j];
+                    const float rs      = rbuf[j];
                     if (ls < rs)
-                        lbuf[i]             = ls + (rs - ls) * slink;
+                        lbuf[j]             = ls + (rs - ls) * slink;
                     else
-                        rbuf[i]             = rs + (ls - rs) * slink;
+                        rbuf[j]             = rs + (ls - rs) * slink;
                 }
             }
         }
