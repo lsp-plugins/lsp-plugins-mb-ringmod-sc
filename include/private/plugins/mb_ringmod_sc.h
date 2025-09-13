@@ -41,11 +41,31 @@ namespace lsp
         class mb_ringmod_sc: public plug::Module
         {
             protected:
+                enum sc_type_t
+                {
+                    SC_TYPE_INTERNAL,
+                    SC_TYPE_EXTERNAL,
+                    SC_TYPE_SHM_LINK,
+                };
+
+                enum sc_source_t
+                {
+                    SC_SRC_LEFT_RIGHT,
+                    SC_SRC_RIGHT_LEFT,
+                    SC_SRC_LEFT,
+                    SC_SRC_RIGHT,
+                    SC_SRC_MID_SIDE,
+                    SC_SRC_SIDE_MID,
+                    SC_SRC_MIDDLE,
+                    SC_SRC_SIDE,
+                    SC_SRC_MIN,
+                    SC_SRC_MAX
+                };
+
                 enum mode_t
                 {
-                    CD_MONO,
-                    CD_STEREO,
-                    CD_X2_STEREO
+                    MODE_IIR,
+                    MODE_SPM,
                 };
 
                 typedef struct premix_t
@@ -56,15 +76,6 @@ namespace lsp
                     float               fLinkToSc;              // Link -> Sidechain mix
                     float               fScToIn;                // Sidechain -> Input mix
                     float               fScToLink;              // Sidechain -> Link mix
-
-                    float              *vIn[2];                 // Input buffer
-                    float              *vOut[2];                // Output buffer
-                    float              *vSc[2];                 // Sidechain buffer
-                    float              *vLink[2];               // Link buffer
-
-                    float              *vTmpIn[2];              // Replacement buffer for input
-                    float              *vTmpLink[2];            // Replacement buffer for link
-                    float              *vTmpSc[2];              // Replacement buffer for sidechain
 
                     plug::IPort        *pInToSc;                // Input -> Sidechain mix
                     plug::IPort        *pInToLink;              // Input -> Link mix
@@ -82,6 +93,16 @@ namespace lsp
 
                 typedef struct band_t
                 {
+                    float               fFreqStart;             // Start frequency
+                    float               fFreqEnd;               // End frequency
+                    float               fTauRelease;            // Release time
+                    uint32_t            nHold;                  // Band hold time
+                    uint32_t            nLatency;               // Compensation latency of specific band
+                    uint32_t            nDuck;                  // Compensation of ducking delay
+                    float               fStereoLink;            // Stereo link between channels
+                    bool                bEnabled;               // Band is enabled
+                    bool                bOn;                    // Band is enabled
+
                     plug::IPort        *pSolo;                  // Solo band
                     plug::IPort        *pMute;                  // Mute band
                     plug::IPort        *pEnable;                // Enable band
@@ -96,9 +117,12 @@ namespace lsp
 
                 typedef struct ch_band_t
                 {
-                    dspu::Delay         sPreDelay;              // Pre-delay for band-limited signal
-                    dspu::Delay         sPostDelay;             // Post-delay for band-limited signal
                     dspu::RingBuffer    sScDelay;               // Delay for sidechain
+
+                    float              *vScData;                // Band-filtered sidechain data
+
+                    uint32_t            nHold;                  // Hold time
+                    float               fPeak;                  // Current peak value
 
                     plug::IPort        *pReduction;             // Reduction level meters
                 } ch_band_t;
@@ -113,6 +137,20 @@ namespace lsp
                     dspu::FFTCrossover  sFFTScCrossover;        // Sidechain FFT crossover
                     ch_band_t           vBands[meta::mb_ringmod_sc::BANDS_MAX]; // Band processors
 
+                    float              *vIn;                    // Plugin input buffer pointer
+                    float              *vSc;                    // Plugin sidechain buffer pointer
+                    float              *vLink;                  // Plugin link buffer pointer
+                    float              *vOut;                   // Plugin output buffer pointer
+
+                    float              *vInPtr;                 // Current pointer to the input data after pre-mix stage
+                    float              *vScPtr;                 // Current pointer to the sidechain data after pre-mix stage
+                    float              *vLinkPtr;               // Current pointer to the link data after pre-mix stage
+                    float              *vOutPtr;                // Current pointer to output buffer after pre-mix stage
+
+                    float              *vTmpIn;                 // Replacement buffer for input (premix)
+                    float              *vTmpLink;               // Replacement buffer for link (premix)
+                    float              *vTmpSc;                 // Replacement buffer for sidechain (premix)
+
                     plug::IPort        *pIn;                    // Input port
                     plug::IPort        *pOut;                   // Output port
                     plug::IPort        *pSc;                    // Sidechain port
@@ -126,7 +164,15 @@ namespace lsp
                 split_t             vSplits[meta::mb_ringmod_sc::BANDS_MAX - 1];    // Band splits
                 band_t              vBands[meta::mb_ringmod_sc::BANDS_MAX];         // Bands
                 float              *vBuffer;                // Temporary buffer for audio processing
+                float              *vEmptyBuffer;           // Empty buffer filled with zeros
                 premix_t            sPremix;                // Sidechain pre-mix
+
+                uint32_t            nType;                  // Sidechain type
+                uint32_t            nSource;                // Sidechain source
+                uint32_t            nMode;                  // Crossover mode
+                uint32_t            nLatency;               // Lookahead-related latency
+                float               fScGain;                // Side-chain gain
+                bool                bSyncFilters;           // Need to synchronize filter state with UI
 
                 plug::IPort        *pBypass;                // Bypass
                 plug::IPort        *pGainIn;                // Input gain
@@ -148,12 +194,18 @@ namespace lsp
                 uint8_t            *pData;                  // Allocated data
 
             protected:
-                static void         process_band(void *object, void *subject, size_t band, const float *data, size_t sample, size_t count);
-                static void         process_sc_band(void *object, void *subject, size_t band, const float *data, size_t sample, size_t count);
+                static void         process_band(void *object, void *subject, size_t band, const float *data, size_t sample, size_t samples);
+                static void         process_sc_band(void *object, void *subject, size_t band, const float *data, size_t sample, size_t samples);
                 static size_t       select_fft_rank(size_t sample_rate);
+                static size_t       decode_iir_slope(size_t slope);
 
             protected:
                 void                do_destroy();
+                void                update_premix();
+                void                premix_channels(size_t samples);
+                void                process_sidechain_type(size_t samples);
+                void                process_sidechain_envelope(size_t samples);
+                size_t              build_split_plan(band_t **plan);
 
             public:
                 explicit mb_ringmod_sc(const meta::plugin_t *meta);
@@ -170,6 +222,7 @@ namespace lsp
             public:
                 virtual void        update_sample_rate(long sr) override;
                 virtual void        update_settings() override;
+                virtual void        ui_activated() override;
                 virtual void        process(size_t samples) override;
                 virtual void        dump(dspu::IStateDumper *v) const override;
         };
