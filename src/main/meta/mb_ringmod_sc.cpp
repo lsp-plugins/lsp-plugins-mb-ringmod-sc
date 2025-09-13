@@ -70,7 +70,6 @@ namespace lsp
 
         static const port_item_t mb_ringmod_sc_slopes[] =
         {
-            { "off",            "eq.slope.off"              },
             { "12 dB/oct",      "eq.slope.12dbo"            },
             { "24 dB/oct",      "eq.slope.24dbo"            },
             { "36 dB/oct",      "eq.slope.36dbo"            },

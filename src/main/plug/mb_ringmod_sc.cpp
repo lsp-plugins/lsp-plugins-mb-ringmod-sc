@@ -491,10 +491,10 @@ namespace lsp
         {
             switch (slope)
             {
-                case 1: return dspu::CROSS_SLOPE_LR2;
-                case 2: return dspu::CROSS_SLOPE_LR4;
-                case 3: return dspu::CROSS_SLOPE_LR8;
-                case 4: return dspu::CROSS_SLOPE_LR12;
+                case 0: return dspu::CROSS_SLOPE_LR2;
+                case 1: return dspu::CROSS_SLOPE_LR4;
+                case 2: return dspu::CROSS_SLOPE_LR8;
+                case 3: return dspu::CROSS_SLOPE_LR12;
                 default: break;
             }
             return dspu::CROSS_SLOPE_OFF;
@@ -539,21 +539,17 @@ namespace lsp
                 {
                     channel_t * const c = &vChannels[i];
 
-                    for (size_t j=0; j<meta::mb_ringmod_sc::BANDS_MAX; ++j)
+                    for (size_t j=1; j<meta::mb_ringmod_sc::BANDS_MAX; ++j)
                     {
-                        band_t * const b    = &vBands[j];
-
                         // Configure split point
-                        if (j > 0)
-                        {
-                            const size_t slope      = (b->bEnabled) ? iir_slope : dspu::CROSS_SLOPE_OFF;
-                            const size_t spi        = j - 1;
-                            c->sCrossover.set_slope(spi, slope);
-                            c->sCrossover.set_frequency(spi, b->fFreqStart);
+                        band_t * const b        = &vBands[j];
+                        const size_t slope      = (b->bEnabled) ? iir_slope : dspu::CROSS_SLOPE_OFF;
+                        const size_t spi        = j - 1;
+                        c->sCrossover.set_slope(spi, slope);
+                        c->sCrossover.set_frequency(spi, b->fFreqStart);
 
-                            c->sScCrossover.set_slope(spi, slope);
-                            c->sScCrossover.set_frequency(spi, b->fFreqStart);
-                        }
+                        c->sScCrossover.set_slope(spi, slope);
+                        c->sScCrossover.set_frequency(spi, b->fFreqStart);
                     }
 
                     if (c->sCrossover.needs_reconfiguration())
@@ -870,9 +866,9 @@ namespace lsp
             float peak              = cb->fPeak;
             float * const dst       = cb->vScData;
 
-            for (size_t j=0; j<samples; ++j)
+            for (size_t i=0; i<samples; ++i)
             {
-                float s             = fabsf(data[j] * sc_gain);  // Rectify input
+                float s             = fabsf(data[i] * sc_gain);  // Rectify input
                 if (peak > s)
                 {
                     // Current rectified sample is below the peak value
@@ -892,7 +888,7 @@ namespace lsp
                     peak                = s;
                     hold                = b->nHold;             // Reset hold counter
                 }
-                dst[j]              = s;
+                dst[i]              = s;
             }
 
             // Update parameters
