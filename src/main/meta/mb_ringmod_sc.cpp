@@ -88,6 +88,10 @@ namespace lsp
         COMBO("type", "Sidechain type", "Type", 1, ringmod_sc_types), \
         COMBO("mode", "Crossover mode", "Mode", 0, mb_ringmod_sc_modes), \
         COMBO("slope", "Crossover slope", "Slope", 2, mb_ringmod_sc_slopes), \
+        SWITCH("showmx", "Show mix overlay", "Show mix bar", 0.0f), \
+        AMP_GAIN10("dry", "Dry gain", "Dry", GAIN_AMP_M_INF_DB), \
+        AMP_GAIN10("wet", "Wet gain", "Wet", GAIN_AMP_0_DB), \
+        PERCENTS("drywet", "Dry/Wet balance", "Dry/Wet", 100.0f, 0.1f), \
         LOG_CONTROL("zoom", "Graph zoom", "Zoom", U_GAIN_AMP, mb_ringmod_sc::ZOOM), \
         SWITCH("flt", "Band filter curves", "Show filters", 1.0f), \
         LOG_CONTROL("react", "FFT reactivity", "Reactivity", U_MSEC, mb_ringmod_sc::REACT_TIME), \
@@ -136,6 +140,7 @@ namespace lsp
         LOG_CONTROL("rt" id, "Release time" label, "Release" alias, U_MSEC, mb_ringmod_sc::RELEASE), \
         CONTROL("dt" id, "Ducking time" label, "Duck" alias, U_MSEC, mb_ringmod_sc::DUCK), \
         CONTROL("am" id, "Amount" label, "Amount" alias, U_DB, mb_ringmod_sc::AMOUNT), \
+        AMP_GAIN10("bg" id, "Band Gain" label, "Gain" alias, GAIN_AMP_0_DB), \
         METER("bfe" id, "Frequency range end" label, U_HZ, mb_ringmod_sc::OUT_FREQ)
 
     #define RMOD_BAND_METERS(id, label) \

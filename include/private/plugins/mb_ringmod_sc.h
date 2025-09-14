@@ -96,6 +96,8 @@ namespace lsp
                     float               fFreqStart;             // Start frequency
                     float               fFreqEnd;               // End frequency
                     float               fTauRelease;            // Release time
+                    float               fAmount;                // Amount
+                    float               fGain;                  // Additional gain
                     uint32_t            nHold;                  // Band hold time
                     uint32_t            nLatency;               // Compensation latency of specific band
                     uint32_t            nDuck;                  // Compensation of ducking delay
@@ -111,6 +113,7 @@ namespace lsp
                     plug::IPort        *pRelease;               // Release time
                     plug::IPort        *pDuck;                  // Duck time
                     plug::IPort        *pAmount;                // Amount
+                    plug::IPort        *pGain;                  // Additional gain
                     plug::IPort        *pFreqEnd;               // Frequency range end
                     plug::IPort        *pStereoLink;            // Stereo linking
                 } band_t;
@@ -123,6 +126,7 @@ namespace lsp
 
                     uint32_t            nHold;                  // Hold time
                     float               fPeak;                  // Current peak value
+                    float               fReduction;             // Reduction level
 
                     plug::IPort        *pReduction;             // Reduction level meters
                 } ch_band_t;
@@ -131,6 +135,7 @@ namespace lsp
                 {
                     dspu::Bypass        sBypass;                // Bypass
                     dspu::Delay         sDryDelay;              // Delay for dry (unprocessed) signal
+                    dspu::Delay         sScDelay;               // Delay for the sidechain signal
                     dspu::Crossover     sCrossover;             // Crossover
                     dspu::Crossover     sScCrossover;           // Sidechain Crossover
                     dspu::FFTCrossover  sFFTCrossover;          // FFT crossover
@@ -150,6 +155,8 @@ namespace lsp
                     float              *vTmpIn;                 // Replacement buffer for input (premix)
                     float              *vTmpLink;               // Replacement buffer for link (premix)
                     float              *vTmpSc;                 // Replacement buffer for sidechain (premix)
+
+                    float              *vData;                  // Data buffer
 
                     plug::IPort        *pIn;                    // Input port
                     plug::IPort        *pOut;                   // Output port
@@ -171,8 +178,15 @@ namespace lsp
                 uint32_t            nSource;                // Sidechain source
                 uint32_t            nMode;                  // Crossover mode
                 uint32_t            nLatency;               // Lookahead-related latency
-                float               fScGain;                // Side-chain gain
+                float               fInGain;                // Input signal gain
+                float               fScGain;                // Sidechain gain
+                float               fDryGain;               // Dry gain
+                float               fWetGain;               // Wet gain
+                float               fScOutGain;             // Output gain for sidechain
                 bool                bSyncFilters;           // Need to synchronize filter state with UI
+                bool                bActive;                // Apply sidechain processing
+                bool                bOutIn;                 // Output input signal
+                bool                bOutSc;                 // Output sidechain signal
 
                 plug::IPort        *pBypass;                // Bypass
                 plug::IPort        *pGainIn;                // Input gain
@@ -184,6 +198,9 @@ namespace lsp
                 plug::IPort        *pType;                  // Type of sidechain
                 plug::IPort        *pMode;                  // Mode of sidechain
                 plug::IPort        *pSlope;                 // Slope of sidechain
+                plug::IPort        *pDry;                   // Dry gain
+                plug::IPort        *pWet;                   // Wet gain
+                plug::IPort        *pDryWet;                // Dry/Wet balance
                 plug::IPort        *pZoom;                  // Zoom
                 plug::IPort        *pReactivity;            // FFT Reactivity
                 plug::IPort        *pShift;                 // FFT shift
@@ -205,6 +222,8 @@ namespace lsp
                 void                premix_channels(size_t samples);
                 void                process_sidechain_type(size_t samples);
                 void                process_sidechain_envelope(size_t samples);
+                void                process_signal(size_t samples);
+                void                output_meshes();
                 size_t              build_split_plan(band_t **plan);
 
             public:

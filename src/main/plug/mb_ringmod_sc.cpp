@@ -89,7 +89,11 @@ namespace lsp
             nSource             = SC_SRC_LEFT_RIGHT;
             nMode               = MODE_IIR;
             nLatency            = 0;
+            fInGain             = GAIN_AMP_0_DB;
             fScGain             = GAIN_AMP_0_DB;
+            fDryGain            = GAIN_AMP_M_INF_DB;
+            fWetGain            = GAIN_AMP_0_DB;
+            fScOutGain          = GAIN_AMP_0_DB;
 
             pBypass             = NULL;
             pGainIn             = NULL;
@@ -101,6 +105,9 @@ namespace lsp
             pType               = NULL;
             pMode               = NULL;
             pSlope              = NULL;
+            pDry                = NULL;
+            pWet                = NULL;
+            pDryWet             = NULL;
             pZoom               = NULL;
             pReactivity         = NULL;
             pShift              = NULL;
@@ -109,6 +116,9 @@ namespace lsp
             pSource             = NULL;
 
             bSyncFilters        = false;
+            bActive             = true;
+            bOutIn              = true;
+            bOutSc              = true;
 
             // Bind split ports
             for (size_t i=0; i<meta::mb_ringmod_sc::BANDS_MAX-1; ++i)
@@ -127,6 +137,7 @@ namespace lsp
                 b->fFreqStart       = 0.0f;
                 b->fFreqEnd         = 0.0f;
                 b->fTauRelease      = 0.0f;
+                b->fAmount          = GAIN_AMP_0_DB;
                 b->nHold            = 0;
                 b->nLatency         = 0;
                 b->nDuck            = 0;
@@ -168,6 +179,7 @@ namespace lsp
                                       buf_sz + // vEmptyBuffer
                                       nChannels * ( // channel_t::
                                           buf_sz * 3 + // vTmpIn, vTmpLink, vTmpSc
+                                          buf_sz + // vData
                                           meta::mb_ringmod_sc::BANDS_MAX * ( // ch_band_t::
                                               buf_sz // vScData
                                           )
@@ -199,6 +211,7 @@ namespace lsp
 
                 c->sBypass.construct();
                 c->sDryDelay.construct();
+                c->sScDelay.construct();
                 c->sCrossover.construct();
                 c->sScCrossover.construct();
                 c->sFFTCrossover.construct();
@@ -235,6 +248,8 @@ namespace lsp
                 c->vTmpIn               = advance_ptr_bytes<float>(ptr, buf_sz);
                 c->vTmpLink             = advance_ptr_bytes<float>(ptr, buf_sz);
                 c->vTmpSc               = advance_ptr_bytes<float>(ptr, buf_sz);
+
+                c->vData                = advance_ptr_bytes<float>(ptr, buf_sz);
 
                 c->pIn                  = NULL;
                 c->pOut                 = NULL;
@@ -284,6 +299,10 @@ namespace lsp
             BIND_PORT(pType);
             BIND_PORT(pMode);
             BIND_PORT(pSlope);
+            SKIP_PORT("Show dry/wet overlay");
+            BIND_PORT(pDry);
+            BIND_PORT(pWet);
+            BIND_PORT(pDryWet);
             BIND_PORT(pZoom);
             SKIP_PORT("Band filter curves");
             BIND_PORT(pReactivity);
@@ -318,6 +337,7 @@ namespace lsp
                 BIND_PORT(b->pRelease);
                 BIND_PORT(b->pDuck);
                 BIND_PORT(b->pAmount);
+                BIND_PORT(b->pGain);
                 BIND_PORT(b->pFreqEnd);
                 if (nChannels > 1)
                     BIND_PORT(b->pStereoLink);
@@ -405,6 +425,7 @@ namespace lsp
 
                 c->sBypass.init(sr);
                 c->sDryDelay.init(in_max_delay);
+                c->sScDelay.init(in_max_delay);
                 c->sCrossover.set_sample_rate(sr);
                 c->sScCrossover.set_sample_rate(sr);
                 c->sFFTCrossover.set_sample_rate(sr);
@@ -615,6 +636,7 @@ namespace lsp
                 b->nHold            = dspu::millis_to_samples(fSampleRate, b->pHold->value());
                 b->nLatency         = dspu::millis_to_samples(fSampleRate, b->pLookahead->value());
                 b->nDuck            = nLatency + dspu::millis_to_samples(fSampleRate, b->pDuck->value());
+                b->fGain            = b->pGain->value();
                 b->fStereoLink      = (b->pStereoLink != NULL) ? lsp_max(b->pStereoLink->value() * 0.01f, 0.0f) : 0.0f;
 
                 if (!has_solo)
@@ -633,18 +655,35 @@ namespace lsp
                 b->nLatency         = nLatency - b->nLatency;
             }
 
-            // Report latency
-            set_latency(nLatency);
+            // Configure loudness
+            const float out_gain    = pGainOut->value();
+            const float dry_gain    = pDry->value();
+            const float wet_gain    = pWet->value();
+            const float drywet      = pDryWet->value() * 0.01f;
+            const float sc_gain     = pGainSc->value();
+
+            fInGain                 = pGainIn->value();
+            fScGain                 = sc_gain;
+            fScOutGain              = sc_gain * out_gain;
+            fDryGain                = (dry_gain * drywet + 1.0f - drywet) * out_gain;
+            fWetGain                = wet_gain * drywet * out_gain;
+
+            // Apply latency compensation and report latency
+            for (size_t i=0; i<nChannels; ++i)
+            {
+                channel_t * const c = &vChannels[i];
+
+                c->sDryDelay.set_delay(nLatency);
+                c->sScDelay.set_delay(nLatency);
+            }
+
+            const size_t xover_latency = (nMode == MODE_SPM) ? vChannels[0].sFFTCrossover.latency() : 0;
+            set_latency(nLatency + xover_latency);
         }
 
         void mb_ringmod_sc::ui_activated()
         {
             bSyncFilters        = true;
-        }
-
-        void mb_ringmod_sc::process_band(void *object, void *subject, size_t band, const float *data, size_t sample, size_t samples)
-        {
-            // TODO
         }
 
         void mb_ringmod_sc::premix_channels(size_t samples)
@@ -741,6 +780,15 @@ namespace lsp
                                       c->vInPtr;
 
                 c->vScPtr           = (buf != NULL) ? buf : vEmptyBuffer;
+
+                // Apply delay compensation to the unprocessed sidechain signal
+                if ((bOutSc) && (fScOutGain > GAIN_AMP_M_INF_DB))
+                    c->sScDelay.process(c->vData, c->vScPtr, fScOutGain, samples);
+                else
+                {
+                    c->sScDelay.append(c->vScPtr, samples);
+                    dsp::fill_zero(c->vData, samples);
+                }
             }
 
             // Apply sidechain pre-processing depending on selected source (stereo only)
@@ -853,18 +901,52 @@ namespace lsp
             }
         }
 
+        void mb_ringmod_sc::process_band(void *object, void *subject, size_t band, const float *data, size_t sample, size_t samples)
+        {
+            mb_ringmod_sc * const self  = static_cast<mb_ringmod_sc *>(object);
+            channel_t * const c         = static_cast<channel_t *>(subject);
+            ch_band_t * const cb        = &c->vBands[band];
+            band_t * const b            = &self->vBands[band];
+
+            // Compute the gain reduction
+            // cb->vScData contains sidechain envelope signal
+            // vBuffer will contain gain reduction
+            const float * const src     = &cb->vScData[sample];
+            float * const dst           = &c->vData[sample];
+            float * const tmp           = self->vBuffer;
+            for (size_t j=0; j<samples; ++j)
+                tmp[j]                      = lsp_max(0.0f, GAIN_AMP_0_DB - src[j] * b->fAmount) * b->fGain;
+            cb->fReduction              = lsp_min(cb->fReduction, dsp::abs_min(tmp, samples));
+
+            // Mix band signal to output if band is enabled
+            if (b->bOn)
+            {
+                // Pass dry (unprocessed) signal
+                const float dry_gain        = (self->bOutIn) ? self->fInGain * self->fDryGain : GAIN_AMP_M_INF_DB;
+                if (dry_gain > GAIN_AMP_M_INF_DB)
+                    dsp::fmadd_k3(dst, data, dry_gain, samples);
+
+                // Apply gain reduction to the signal and mix wet signal to the data buffer
+                if (self->bOutIn)
+                {
+                    dsp::mul2(tmp, data, samples);
+                    dsp::fmadd_k3(dst, tmp, self->fWetGain, samples);
+                }
+            }
+        }
+
         void mb_ringmod_sc::process_sc_band(void *object, void *subject, size_t band, const float *data, size_t sample, size_t samples)
         {
-            mb_ringmod_sc *self     = static_cast<mb_ringmod_sc *>(object);
-            channel_t *c            = static_cast<channel_t *>(subject);
-            ch_band_t *cb           = &c->vBands[band];
-            band_t *b               = &self->vBands[band];
+            mb_ringmod_sc * const self  = static_cast<mb_ringmod_sc *>(object);
+            channel_t * const c         = static_cast<channel_t *>(subject);
+            ch_band_t * const cb        = &c->vBands[band];
+            band_t * const b            = &self->vBands[band];
 
             // Transform sidechain signal into envelope
-            const float sc_gain     = self->fScGain;
-            uint32_t hold           = cb->nHold;
-            float peak              = cb->fPeak;
-            float * const dst       = cb->vScData;
+            const float sc_gain         = self->fScGain;
+            uint32_t hold               = cb->nHold;
+            float peak                  = cb->fPeak;
+            float * const dst           = &cb->vScData[sample];
 
             for (size_t i=0; i<samples; ++i)
             {
@@ -916,6 +998,33 @@ namespace lsp
             }
         }
 
+        void mb_ringmod_sc::process_signal(size_t samples)
+        {
+            for (size_t i=0; i<nChannels; ++i)
+            {
+                channel_t *c        = &vChannels[i];
+
+                // Apply latency compensation
+                c->sDryDelay.process(c->vTmpIn, c->vInPtr, samples);
+
+                // c->vData contains sidechain signal with applied gain
+                // c->vTmpIn contains input signal with applied input gain
+                if (bActive)
+                {
+                    // Process wet signal
+                    if (nMode == MODE_IIR)
+                        c->sCrossover.process(c->vTmpIn, samples);
+                    else
+                        c->sFFTCrossover.process(c->vTmpIn, samples);
+                }
+                else if ((bOutIn) && (fInGain >= GAIN_AMP_M_INF_DB))
+                    dsp::add2(c->vData, c->vTmpIn, samples);
+
+                // Now c->vData contains processed signal, apply bypass
+                c->sBypass.process(c->vOutPtr, c->vTmpIn, c->vData, samples);
+            }
+        }
+
         void mb_ringmod_sc::process(size_t samples)
         {
             // Prepare audio channels
@@ -930,6 +1039,12 @@ namespace lsp
                 c->vSc              = c->pSc->buffer<float>();
                 c->vLink            = ((buf != NULL) && (buf->active())) ? buf->buffer() : NULL;
                 c->vOut             = c->pOut->buffer<float>();
+
+                for (size_t j=0; j<meta::mb_ringmod_sc::BANDS_MAX; ++j)
+                {
+                    ch_band_t * const cb    = &c->vBands[j];
+                    cb->fReduction          = 0.0f;
+                }
             }
 
             // Process data
@@ -941,10 +1056,31 @@ namespace lsp
                 premix_channels(to_process);
                 process_sidechain_type(to_process);
                 process_sidechain_envelope(to_process);
+                process_signal(to_process);
 
                 // Updte offset
                 offset                     += to_process;
             }
+
+            // Output meters
+            for (size_t i=0; i<nChannels; ++i)
+            {
+                channel_t *c        = &vChannels[i];
+
+                for (size_t j=0; j<meta::mb_ringmod_sc::BANDS_MAX; ++j)
+                {
+                    ch_band_t * const cb    = &c->vBands[j];
+                    cb->pReduction->set_value(cb->fReduction);
+                }
+            }
+
+            // Output meshes
+            output_meshes();
+        }
+
+        void mb_ringmod_sc::output_meshes()
+        {
+            // TODO
         }
 
         void mb_ringmod_sc::dump(dspu::IStateDumper *v) const
