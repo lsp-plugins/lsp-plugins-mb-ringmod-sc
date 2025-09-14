@@ -375,6 +375,7 @@ namespace lsp
 
                     c->sBypass.destroy();
                     c->sDryDelay.destroy();
+                    c->sScDelay.destroy();
                     c->sCrossover.destroy();
                     c->sScCrossover.destroy();
                     c->sFFTCrossover.destroy();
