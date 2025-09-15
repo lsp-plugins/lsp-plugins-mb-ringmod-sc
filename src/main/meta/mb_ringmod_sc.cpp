@@ -96,8 +96,12 @@ namespace lsp
         SWITCH("flt", "Band filter curves", "Show filters", 1.0f), \
         LOG_CONTROL("react", "FFT reactivity", "Reactivity", U_MSEC, mb_ringmod_sc::REACT_TIME), \
         AMP_GAIN100("shift", "Shift gain", "Shift", 1.0f), \
-        MESH("bfc", "Band filter charts", 8, mb_ringmod_sc::FFT_MESH_POINTS + 4), \
-        MESH("meters", "Graph meters", 3 * channels + 1, mb_ringmod_sc::FFT_MESH_POINTS + 4)
+        MESH("bfc", "Band filter charts", 9, mb_ringmod_sc::FFT_MESH_POINTS + 4), \
+        MESH("meters", "Band filter reduction meters", 1 + channels * 3, mb_ringmod_sc::FFT_MESH_POINTS + 4)
+
+    #define RMOD_FFT_BUTTONS(id, name, alias) \
+        SWITCH("ifft" id, "Input FFT analysis" name, "FFT In" name, 1), \
+        SWITCH("offt" id, "Output FFT analysis" name, "FFT Out" name, 1)
 
     #define RMOD_COMMON_MONO \
         RMOD_COMMON(1)
@@ -166,6 +170,8 @@ namespace lsp
             RMOD_PREMIX,
             RMOD_COMMON_MONO,
 
+            RMOD_FFT_BUTTONS("", "", ""),
+
             RMOD_SPLIT("_1", " 1", 0.0f, 40.0f),
             RMOD_SPLIT("_2", " 2", 1.0f, 100.0f),
             RMOD_SPLIT("_3", " 3", 0.0f, 252.0f),
@@ -193,6 +199,9 @@ namespace lsp
             RMOD_SHM_LINK_STEREO,
             RMOD_PREMIX,
             RMOD_COMMON_STEREO,
+
+            RMOD_FFT_BUTTONS("_l", " Left", " L"),
+            RMOD_FFT_BUTTONS("_r", " Right", " R"),
 
             RMOD_SPLIT("_1", " 1", 0.0f, 40.0f),
             RMOD_SPLIT("_2", " 2", 1.0f, 100.0f),

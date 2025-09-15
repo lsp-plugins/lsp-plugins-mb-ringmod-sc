@@ -69,6 +69,8 @@ namespace lsp
             vChannels           = NULL;
             vBuffer             = NULL;
             vEmptyBuffer        = NULL;
+            vFreqs              = NULL;
+            vIndexes            = NULL;
 
             // Pre-mixing ports
             sPremix.fInToSc     = GAIN_AMP_M_INF_DB;
@@ -115,6 +117,7 @@ namespace lsp
             pMeterMesh          = NULL;
             pSource             = NULL;
 
+            bUpdFilters         = true;
             bSyncFilters        = false;
             bActive             = true;
             bOutIn              = true;
@@ -133,6 +136,8 @@ namespace lsp
             for (size_t i=0; i<meta::mb_ringmod_sc::BANDS_MAX; ++i)
             {
                 band_t *b           = &vBands[i];
+
+                b->vTr              = NULL;
 
                 b->fFreqStart       = 0.0f;
                 b->fFreqEnd         = 0.0f;
@@ -173,15 +178,24 @@ namespace lsp
 
             // Estimate the number of bytes to allocate
             size_t szof_channels    = align_size(sizeof(channel_t) * nChannels, OPTIMAL_ALIGN);
-            size_t buf_sz           = BUFFER_SIZE * sizeof(float);
+            size_t szof_buf         = BUFFER_SIZE * sizeof(float);
+            size_t szof_fft         = meta::mb_ringmod_sc::FFT_MESH_POINTS * sizeof(float);
+            size_t szof_ifft        = meta::mb_ringmod_sc::FFT_MESH_POINTS * sizeof(uint32_t);
+            size_t szof_tmp         = lsp_max(szof_buf, szof_fft * 2);
             size_t alloc            = szof_channels + // v_channels
-                                      buf_sz + // vBuffer
-                                      buf_sz + // vEmptyBuffer
+                                      szof_tmp + // vBuffer
+                                      szof_buf + // vEmptyBuffer
+                                      szof_fft + // vFreqs
+                                      szof_ifft + // vIndices
+                                      meta::mb_ringmod_sc::BANDS_MAX * ( // band_t
+                                          szof_fft // vTr
+                                      ) +
                                       nChannels * ( // channel_t::
-                                          buf_sz * 3 + // vTmpIn, vTmpLink, vTmpSc
-                                          buf_sz + // vData
+                                          szof_buf * 3 + // vTmpIn, vTmpLink, vTmpSc
+                                          szof_buf + // vData
+                                          szof_fft * 3 + // vGain, vFftIn, vFftOut
                                           meta::mb_ringmod_sc::BANDS_MAX * ( // ch_band_t::
-                                              buf_sz // vScData
+                                              szof_buf // vScData
                                           )
                                       );
 
@@ -192,8 +206,10 @@ namespace lsp
 
             // Initialize pointers to channels and temporary buffer
             vChannels               = advance_ptr_bytes<channel_t>(ptr, szof_channels);
-            vBuffer                 = advance_ptr_bytes<float>(ptr, buf_sz);
-            vEmptyBuffer            = advance_ptr_bytes<float>(ptr, buf_sz);
+            vBuffer                 = advance_ptr_bytes<float>(ptr, szof_tmp);
+            vEmptyBuffer            = advance_ptr_bytes<float>(ptr, szof_buf);
+            vFreqs                  = advance_ptr_bytes<float>(ptr, szof_fft);
+            vIndexes                = advance_ptr_bytes<uint32_t>(ptr, szof_ifft);
 
             // Initialize analyzer
             if (!sAnalyzer.init(nChannels * 2, meta::mb_ringmod_sc::FFT_RANK,
@@ -205,9 +221,17 @@ namespace lsp
             sAnalyzer.set_window(meta::mb_ringmod_sc::FFT_WINDOW);
             sAnalyzer.set_rate(meta::mb_ringmod_sc::REFRESH_RATE);
 
+            sCounter.set_frequency(meta::mb_ringmod_sc::REFRESH_RATE, true);
+
+            for (size_t i=0; i < meta::mb_ringmod_sc::BANDS_MAX; ++i)
+            {
+                band_t * const b        = &vBands[i];
+                b->vTr                  = advance_ptr_bytes<float>(ptr, szof_fft);
+            }
+
             for (size_t i=0; i < nChannels; ++i)
             {
-                channel_t *c            = &vChannels[i];
+                channel_t * const c     = &vChannels[i];
 
                 c->sBypass.construct();
                 c->sDryDelay.construct();
@@ -231,7 +255,7 @@ namespace lsp
                     cb->nHold               = 0;
                     cb->fPeak               = GAIN_AMP_M_INF_DB;
 
-                    cb->vScData             = advance_ptr_bytes<float>(ptr, buf_sz);
+                    cb->vScData             = advance_ptr_bytes<float>(ptr, szof_buf);
 
                     cb->pReduction          = NULL;
                 }
@@ -245,15 +269,23 @@ namespace lsp
                 c->vScPtr               = NULL;
                 c->vOutPtr              = NULL;
 
-                c->vTmpIn               = advance_ptr_bytes<float>(ptr, buf_sz);
-                c->vTmpLink             = advance_ptr_bytes<float>(ptr, buf_sz);
-                c->vTmpSc               = advance_ptr_bytes<float>(ptr, buf_sz);
+                c->vTmpIn               = advance_ptr_bytes<float>(ptr, szof_buf);
+                c->vTmpLink             = advance_ptr_bytes<float>(ptr, szof_buf);
+                c->vTmpSc               = advance_ptr_bytes<float>(ptr, szof_buf);
 
-                c->vData                = advance_ptr_bytes<float>(ptr, buf_sz);
+                c->vData                = advance_ptr_bytes<float>(ptr, szof_buf);
+                c->vGain                = advance_ptr_bytes<float>(ptr, szof_fft);
+                c->vFftIn               = advance_ptr_bytes<float>(ptr, szof_fft);
+                c->vFftOut              = advance_ptr_bytes<float>(ptr, szof_fft);
+
+                c->bFftIn               = true;
+                c->bFftOut              = true;
 
                 c->pIn                  = NULL;
                 c->pOut                 = NULL;
                 c->pSc                  = NULL;
+                c->pFftIn               = NULL;
+                c->pFftOut              = NULL;
             }
 
             // Bind ports
@@ -313,11 +345,20 @@ namespace lsp
             if (nChannels > 1)
                 BIND_PORT(pSource);
 
+            // Bind FFT switches
+            for (size_t i=0; i<nChannels; ++i)
+            {
+                channel_t * const c = &vChannels[i];
+
+                BIND_PORT(c->pFftIn);
+                BIND_PORT(c->pFftOut);
+            }
+
             // Bind split ports
             lsp_trace("Binding split ports");
             for (size_t i=0; i<meta::mb_ringmod_sc::BANDS_MAX-1; ++i)
             {
-                split_t *s          = &vSplits[i];
+                split_t * const s   = &vSplits[i];
 
                 BIND_PORT(s->pEnabled);
                 BIND_PORT(s->pFreq);
@@ -327,7 +368,7 @@ namespace lsp
             lsp_trace("Binding band ports");
             for (size_t i=0; i<meta::mb_ringmod_sc::BANDS_MAX; ++i)
             {
-                band_t *b           = &vBands[i];
+                band_t * const b    = &vBands[i];
 
                 BIND_PORT(b->pSolo);
                 BIND_PORT(b->pMute);
@@ -344,8 +385,8 @@ namespace lsp
 
                 for (size_t j=0; j<nChannels; ++j)
                 {
-                    channel_t *c        = &vChannels[j];
-                    ch_band_t *cb       = &c->vBands[i];
+                    channel_t * const c = &vChannels[j];
+                    ch_band_t * const cb= &c->vBands[i];
 
                     BIND_PORT(cb->pReduction);
                 }
@@ -418,6 +459,7 @@ namespace lsp
 
             // Update analyzer's sample rate
             sAnalyzer.set_sample_rate(sr);
+            sCounter.set_sample_rate(sr, true);
 
             // Update channels
             for (size_t i=0; i<nChannels; ++i)
@@ -456,6 +498,10 @@ namespace lsp
                     c->sScCrossover.set_handler(j, process_sc_band, this, c);
                 }
             }
+
+            // Need to synchronize filters
+            bUpdFilters         = true;
+            bSyncFilters        = true;
         }
 
         void mb_ringmod_sc::update_premix()
@@ -524,8 +570,13 @@ namespace lsp
 
         void mb_ringmod_sc::update_settings()
         {
-            // TODO
-//            bool bypass             = pBypass->value() >= 0.5f;
+            const bool bypass       = pBypass->value() >= 0.5f;
+
+            for (size_t i=0; i<nChannels; ++i)
+            {
+                channel_t * const c = &vChannels[i];
+                c->sBypass.set_bypass(bypass);
+            }
 
             // Update pre-mix matrix
             update_premix();
@@ -539,13 +590,43 @@ namespace lsp
 
             if (nMode != old_mode)
             {
+                bUpdFilters             = true;
+
                 for (size_t i=0; i<nChannels; ++i)
                 {
                     channel_t *c        = &vChannels[i];
                     c->sDryDelay.clear();
+                    c->sScDelay.clear();
                     c->sFFTCrossover.clear();
                     c->sFFTScCrossover.clear();
                 }
+            }
+
+            // Update analyzer parameters
+            bool has_active_channels = false;
+            for (size_t i=0; i<nChannels; ++i)
+            {
+                channel_t * const c = &vChannels[i];
+                const bool fft_in   = c->pFftIn->value() >= 0.5f;
+                const bool fft_out  = c->pFftOut->value() >= 0.5f;
+
+                sAnalyzer.enable_channel(i*2, fft_in);
+                sAnalyzer.enable_channel(i*2 + 1, fft_out);
+
+                if ((fft_in) || (fft_out))
+                    has_active_channels     = true;
+            }
+
+            sAnalyzer.set_reactivity(pReactivity->value());
+            if (pShift != NULL)
+                sAnalyzer.set_shift(pShift->value() * 100.0f);
+            sAnalyzer.set_activity(has_active_channels > 0);
+
+            // Update analyzer
+            if (sAnalyzer.needs_reconfiguration())
+            {
+                sAnalyzer.reconfigure();
+                sAnalyzer.get_frequencies(vFreqs, vIndexes, SPEC_FREQ_MIN, SPEC_FREQ_MAX, meta::mb_ringmod_sc::FFT_MESH_POINTS);
             }
 
             // Build split plan
@@ -622,6 +703,32 @@ namespace lsp
                         bSyncFilters        = true;
                         c->sFFTScCrossover.update_settings();
                     }
+                }
+            }
+
+            // Check that we need to update band filter curves
+            if (bUpdFilters)
+            {
+                bUpdFilters         = false;
+                bSyncFilters        = true;
+                channel_t * const c = &vChannels[0];
+
+                for (size_t i=0; i<meta::mb_ringmod_sc::BANDS_MAX; ++i)
+                {
+                    // Configure split point
+                    band_t * const b        = &vBands[i];
+                    if (b->bEnabled)
+                    {
+                        if (nMode == MODE_IIR)
+                        {
+                            c->sCrossover.freq_chart(i, vBuffer, vFreqs, meta::mb_ringmod_sc::FFT_MESH_POINTS);
+                            dsp::pcomplex_arg(b->vTr, vBuffer, meta::mb_ringmod_sc::FFT_MESH_POINTS);
+                        }
+                        else
+                            c->sFFTCrossover.freq_chart(i, b->vTr, vFreqs, meta::mb_ringmod_sc::FFT_MESH_POINTS);
+                    }
+                    else
+                        dsp::fill_zero(b->vTr, meta::mb_ringmod_sc::FFT_MESH_POINTS);
                 }
             }
 
@@ -1063,6 +1170,9 @@ namespace lsp
                 offset                     += to_process;
             }
 
+            // Referesh update counter
+            sCounter.submit(samples);
+
             // Output meters
             for (size_t i=0; i<nChannels; ++i)
             {
@@ -1076,12 +1186,139 @@ namespace lsp
             }
 
             // Output meshes
+            update_meshes();
             output_meshes();
+        }
+
+        void mb_ringmod_sc::update_meshes()
+        {
+            if (!sCounter.fired())
+                return;
+
+            // Form gain reduction chart for each buffer
+            for (size_t i=0; i<nChannels; ++i)
+            {
+                size_t emitted      = 0;
+                channel_t * const c = &vChannels[i];
+
+                // Output gain
+                for (size_t j=0; j<meta::mb_ringmod_sc::BANDS_MAX; ++j)
+                {
+                    band_t * const b    = &vBands[j];
+                    if (!b->bOn)
+                        continue;
+
+                    ch_band_t * const cb= &c->vBands[j];
+                    if ((emitted++) > 0)
+                        dsp::fmadd_k3(c->vGain, b->vTr, cb->fReduction, meta::mb_ringmod_sc::FFT_MESH_POINTS);
+                    else
+                        dsp::mul_k3(c->vGain, b->vTr, cb->fReduction, meta::mb_ringmod_sc::FFT_MESH_POINTS);
+                }
+
+                // Clear if there was no data at the input
+                if (emitted <= 0)
+                    dsp::fill_zero(c->vGain, meta::mb_ringmod_sc::FFT_MESH_POINTS);
+            }
         }
 
         void mb_ringmod_sc::output_meshes()
         {
-            // TODO
+            // Output filter mesh
+            plug::mesh_t *mesh      = (pFilterMesh != NULL) ? pFilterMesh->buffer<plug::mesh_t>() : NULL;
+            if ((bSyncFilters) && (mesh != NULL) && (mesh->isEmpty()))
+            {
+                size_t index        = 0;
+                float *v            = mesh->pvData[index++];
+
+                // Copy frequency list
+                v[0]                = SPEC_FREQ_MIN * 0.5f;
+                v[1]                = SPEC_FREQ_MIN * 0.5f;
+                dsp::copy(&v[2], vFreqs, meta::mb_ringmod_sc::FFT_MESH_POINTS);
+                v                  += meta::mb_ringmod_sc::FFT_MESH_POINTS + 2;
+                v[0]                = SPEC_FREQ_MAX * 2.0f;
+                v[1]                = SPEC_FREQ_MAX * 2.0f;
+
+                // Copy frequency chart for each band
+                for (size_t i=0; i<meta::mb_ringmod_sc::BANDS_MAX; ++i)
+                {
+                    v                   = mesh->pvData[index++];
+                    band_t * const b    = &vBands[i];
+
+                    dsp::copy(&v[2], b->vTr, meta::mb_ringmod_sc::FFT_MESH_POINTS);
+
+                    v[0]                = GAIN_AMP_M_INF_DB;
+                    v[1]                = v[2];
+                    v                  += meta::mb_ringmod_sc::FFT_MESH_POINTS + 2;
+                    v[0]                = v[-1];
+                    v[1]                = GAIN_AMP_M_INF_DB;
+                }
+
+                // Output mesh data and reset synchronization flag
+                mesh->data(index, meta::mb_ringmod_sc::FFT_MESH_POINTS + 4);
+                bSyncFilters        = false;
+            }
+
+            // Output meter meshes
+            mesh      = (pMeterMesh != NULL) ? pMeterMesh->buffer<plug::mesh_t>() : NULL;
+            if ((mesh != NULL) && (mesh->isEmpty()))
+            {
+                size_t index        = 0;
+                float *v            = mesh->pvData[index++];
+
+                // Copy frequency list
+                v[0]                = SPEC_FREQ_MIN * 0.5f;
+                v[1]                = SPEC_FREQ_MIN * 0.5f;
+                dsp::copy(&v[2], vFreqs, meta::mb_ringmod_sc::FFT_MESH_POINTS);
+                v                  += meta::mb_ringmod_sc::FFT_MESH_POINTS + 2;
+                v[0]                = SPEC_FREQ_MAX * 2.0f;
+                v[1]                = SPEC_FREQ_MAX * 2.0f;
+
+                for (size_t i=0; i<nChannels; ++i)
+                {
+                    channel_t * const c = &vChannels[i];
+
+                    // Copy gain
+                    v                   = mesh->pvData[index++];
+                    dsp::copy(&v[2], c->vGain, meta::mb_ringmod_sc::FFT_MESH_POINTS);
+                    v[0]                = v[2];
+                    v[1]                = v[2];
+                    v                  += meta::mb_ringmod_sc::FFT_MESH_POINTS + 2;
+                    v[0]                = v[-1];
+                    v[1]                = v[-1];
+
+                    // Copy input FFT meter
+                    v                   = mesh->pvData[index++];
+                    if ((c->bFftIn) && (sAnalyzer.channel_active(i*2)))
+                    {
+                        sAnalyzer.get_spectrum(i*2, &v[2], vIndexes, meta::mb_ringmod_sc::FFT_MESH_POINTS);
+                        dsp::mul_k2(&v[2], fInGain, meta::mb_ringmod_sc::FFT_MESH_POINTS);
+                    }
+                    else
+                        dsp::fill_zero(&v[2], meta::mb_ringmod_sc::FFT_MESH_POINTS);
+
+                    v[0]                = v[2];
+                    v[1]                = v[2];
+                    v                  += meta::mb_ringmod_sc::FFT_MESH_POINTS + 2;
+                    v[0]                = v[-1];
+                    v[1]                = v[-1];
+
+                    // Copy output FFT meter
+                    v                   = mesh->pvData[index++];
+                    if ((c->bFftIn) && (sAnalyzer.channel_active(i*2 + 1)))
+                        sAnalyzer.get_spectrum(i*2 + 1, &v[2], vIndexes, meta::mb_ringmod_sc::FFT_MESH_POINTS);
+                    else
+                        dsp::fill_zero(&v[2], meta::mb_ringmod_sc::FFT_MESH_POINTS);
+
+                    v[0]                = v[2];
+                    v[1]                = v[2];
+                    v                  += meta::mb_ringmod_sc::FFT_MESH_POINTS + 2;
+                    v[0]                = v[-1];
+                    v[1]                = v[-1];
+                }
+
+                // Output mesh data
+                mesh->data(index, meta::mb_ringmod_sc::FFT_MESH_POINTS + 4);
+            }
         }
 
         void mb_ringmod_sc::dump(dspu::IStateDumper *v) const

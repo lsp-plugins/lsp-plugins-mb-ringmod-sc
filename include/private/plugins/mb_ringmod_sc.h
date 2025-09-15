@@ -22,6 +22,7 @@
 #ifndef PRIVATE_PLUGINS_MB_RINGMOD_SC_H_
 #define PRIVATE_PLUGINS_MB_RINGMOD_SC_H_
 
+#include <lsp-plug.in/dsp-units/ctl/Counter.h>
 #include <lsp-plug.in/dsp-units/util/Analyzer.h>
 #include <lsp-plug.in/dsp-units/util/Crossover.h>
 #include <lsp-plug.in/dsp-units/util/Delay.h>
@@ -93,6 +94,8 @@ namespace lsp
 
                 typedef struct band_t
                 {
+                    float              *vTr;                    // Band tansfer function
+
                     float               fFreqStart;             // Start frequency
                     float               fFreqEnd;               // End frequency
                     float               fTauRelease;            // Release time
@@ -157,21 +160,32 @@ namespace lsp
                     float              *vTmpSc;                 // Replacement buffer for sidechain (premix)
 
                     float              *vData;                  // Data buffer
+                    float              *vGain;                  // Gain characteristics
+                    float              *vFftIn;                 // Input FFT graph
+                    float              *vFftOut;                // Output FFT graph
+
+                    bool                bFftIn;                 // Input FFT analysis
+                    bool                bFftOut;                // Output FFT analysis
 
                     plug::IPort        *pIn;                    // Input port
                     plug::IPort        *pOut;                   // Output port
                     plug::IPort        *pSc;                    // Sidechain port
                     plug::IPort        *pShmIn;                 // Shared memory link input
+                    plug::IPort        *pFftIn;                 // FFT analysis input
+                    plug::IPort        *pFftOut;                // FFT analysis output
                 } channel_t;
 
             protected:
                 size_t              nChannels;              // Number of channels
                 channel_t          *vChannels;              // Delay channels
                 dspu::Analyzer      sAnalyzer;              // Analyzer
+                dspu::Counter       sCounter;               // Sync counter
                 split_t             vSplits[meta::mb_ringmod_sc::BANDS_MAX - 1];    // Band splits
                 band_t              vBands[meta::mb_ringmod_sc::BANDS_MAX];         // Bands
                 float              *vBuffer;                // Temporary buffer for audio processing
                 float              *vEmptyBuffer;           // Empty buffer filled with zeros
+                float              *vFreqs;                 // Frequencies
+                uint32_t           *vIndexes;               // Frequency indexes
                 premix_t            sPremix;                // Sidechain pre-mix
 
                 uint32_t            nType;                  // Sidechain type
@@ -183,6 +197,7 @@ namespace lsp
                 float               fDryGain;               // Dry gain
                 float               fWetGain;               // Wet gain
                 float               fScOutGain;             // Output gain for sidechain
+                bool                bUpdFilters;            // Need to update filter state with UI
                 bool                bSyncFilters;           // Need to synchronize filter state with UI
                 bool                bActive;                // Apply sidechain processing
                 bool                bOutIn;                 // Output input signal
@@ -223,6 +238,7 @@ namespace lsp
                 void                process_sidechain_type(size_t samples);
                 void                process_sidechain_envelope(size_t samples);
                 void                process_signal(size_t samples);
+                void                update_meshes();
                 void                output_meshes();
                 size_t              build_split_plan(band_t **plan);
 
