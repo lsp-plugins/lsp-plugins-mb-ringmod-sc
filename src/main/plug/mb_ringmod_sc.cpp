@@ -528,8 +528,21 @@ namespace lsp
             {
                 split_t *s              = &vSplits[i-1];
                 b                       = &vBands[i];
-                b->bEnabled             = s->pEnabled->value() >= 0.5f;
-                b->fFreqStart           = s->pFreq->value();
+
+                const bool enabled      = s->pEnabled->value() >= 0.5f;
+                const float freq        = s->pFreq->value();
+
+                if (b->bEnabled != enabled)
+                {
+                    b->bEnabled             = enabled;
+                    bUpdFilters             = true;
+                }
+                if (b->fFreqStart != freq)
+                {
+                    b->fFreqStart           = freq;
+                    if (b->bEnabled)
+                        bUpdFilters             = true;
+                }
 
                 if (b->bEnabled)
                     plan[plan_size++]       = b;
@@ -695,12 +708,12 @@ namespace lsp
 
                     if (c->sFFTCrossover.needs_update())
                     {
-                        bSyncFilters        = true;
+                        bUpdFilters         = true;
                         c->sFFTCrossover.update_settings();
                     }
                     if (c->sFFTScCrossover.needs_update())
                     {
-                        bSyncFilters        = true;
+                        bUpdFilters         = true;
                         c->sFFTScCrossover.update_settings();
                     }
                 }
@@ -722,7 +735,7 @@ namespace lsp
                         if (nMode == MODE_IIR)
                         {
                             c->sCrossover.freq_chart(i, vBuffer, vFreqs, meta::mb_ringmod_sc::FFT_MESH_POINTS);
-                            dsp::pcomplex_arg(b->vTr, vBuffer, meta::mb_ringmod_sc::FFT_MESH_POINTS);
+                            dsp::pcomplex_mod(b->vTr, vBuffer, meta::mb_ringmod_sc::FFT_MESH_POINTS);
                         }
                         else
                             c->sFFTCrossover.freq_chart(i, b->vTr, vFreqs, meta::mb_ringmod_sc::FFT_MESH_POINTS);
@@ -747,7 +760,7 @@ namespace lsp
                 b->fGain            = b->pGain->value();
                 b->fStereoLink      = (b->pStereoLink != NULL) ? lsp_max(b->pStereoLink->value() * 0.01f, 0.0f) : 0.0f;
 
-                if (!has_solo)
+                if ((!has_solo) && (b->bEnabled))
                     has_solo            = b->pSolo->value() >= 0.5f;
 
                 nLatency            = lsp_max(nLatency, b->nLatency);
@@ -1174,6 +1187,22 @@ namespace lsp
             sCounter.submit(samples);
 
             // Output meters
+            output_meters();
+
+            // Output meshes
+            update_meshes();
+            output_meshes();
+        }
+
+
+        void mb_ringmod_sc::output_meters()
+        {
+            for (size_t i=0; i<meta::mb_ringmod_sc::BANDS_MAX; ++i)
+            {
+                band_t * const b        = &vBands[i];
+                b->pFreqEnd->set_value(b->fFreqEnd);
+            }
+
             for (size_t i=0; i<nChannels; ++i)
             {
                 channel_t *c        = &vChannels[i];
@@ -1184,10 +1213,6 @@ namespace lsp
                     cb->pReduction->set_value(cb->fReduction);
                 }
             }
-
-            // Output meshes
-            update_meshes();
-            output_meshes();
         }
 
         void mb_ringmod_sc::update_meshes()

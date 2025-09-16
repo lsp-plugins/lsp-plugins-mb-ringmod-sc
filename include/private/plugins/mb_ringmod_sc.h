@@ -240,6 +240,7 @@ namespace lsp
                 void                process_signal(size_t samples);
                 void                update_meshes();
                 void                output_meshes();
+                void                output_meters();
                 size_t              build_split_plan(band_t **plan);
 
             public:

@@ -132,7 +132,7 @@ namespace lsp
         OPT_RETURN_STEREO("link", "shml_", "Side-chain shared memory link")
 
     #define RMOD_SPLIT(id, label, enable, freq) \
-        SWITCH("se" id, "Band enable" label, "Split on" label, enable), \
+        SWITCH("se" id, "Band split enable" label, "Split on" label, enable), \
         LOG_CONTROL_DFL("sf" id, "Band split frequency" label, "Split" label, U_HZ, mb_ringmod_sc::FREQ, freq)
 
     #define RMOD_BAND_COMMON(id, label, alias) \
