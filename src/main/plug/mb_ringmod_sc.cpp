@@ -212,7 +212,7 @@ namespace lsp
             vIndexes                = advance_ptr_bytes<uint32_t>(ptr, szof_ifft);
 
             // Initialize analyzer
-            if (!sAnalyzer.init(nChannels * 2, meta::mb_ringmod_sc::FFT_RANK,
+            if (!sAnalyzer.init(nChannels * FFT_TOTAL, meta::mb_ringmod_sc::FFT_RANK,
                 MAX_SAMPLE_RATE, meta::mb_ringmod_sc::REFRESH_RATE))
                 return;
             sAnalyzer.set_rank(meta::mb_ringmod_sc::FFT_RANK);
@@ -278,14 +278,15 @@ namespace lsp
                 c->vFftIn               = advance_ptr_bytes<float>(ptr, szof_fft);
                 c->vFftOut              = advance_ptr_bytes<float>(ptr, szof_fft);
 
-                c->bFftIn               = true;
-                c->bFftOut              = true;
+                for (size_t j=0; j<FFT_TOTAL; ++j)
+                    c->bFft[j]              = true;
 
                 c->pIn                  = NULL;
                 c->pOut                 = NULL;
                 c->pSc                  = NULL;
-                c->pFftIn               = NULL;
-                c->pFftOut              = NULL;
+
+                for (size_t j=0; j<FFT_TOTAL; ++j)
+                    c->pFft[j]              = NULL;
             }
 
             // Bind ports
@@ -350,8 +351,8 @@ namespace lsp
             {
                 channel_t * const c = &vChannels[i];
 
-                BIND_PORT(c->pFftIn);
-                BIND_PORT(c->pFftOut);
+                for (size_t j=0; j<FFT_TOTAL; ++j)
+                    BIND_PORT(c->pFft[j]);
             }
 
             // Bind split ports
@@ -620,14 +621,15 @@ namespace lsp
             for (size_t i=0; i<nChannels; ++i)
             {
                 channel_t * const c = &vChannels[i];
-                const bool fft_in   = c->pFftIn->value() >= 0.5f;
-                const bool fft_out  = c->pFftOut->value() >= 0.5f;
 
-                sAnalyzer.enable_channel(i*2, fft_in);
-                sAnalyzer.enable_channel(i*2 + 1, fft_out);
-
-                if ((fft_in) || (fft_out))
-                    has_active_channels     = true;
+                for (size_t j=0; j<FFT_TOTAL; ++j)
+                {
+                    const bool fft  = c->pFft[j]->value() >= 0.5f;
+                    c->bFft[j]      = fft;
+                    sAnalyzer.enable_channel(i*FFT_TOTAL + j, fft);
+                    if (fft)
+                        has_active_channels     = true;
+                }
             }
 
             sAnalyzer.set_reactivity(pReactivity->value());
@@ -1121,6 +1123,8 @@ namespace lsp
 
         void mb_ringmod_sc::process_signal(size_t samples)
         {
+            float *analyze[6];
+
             for (size_t i=0; i<nChannels; ++i)
             {
                 channel_t *c        = &vChannels[i];
@@ -1141,9 +1145,18 @@ namespace lsp
                 else if ((bOutIn) && (fInGain >= GAIN_AMP_M_INF_DB))
                     dsp::add2(c->vData, c->vTmpIn, samples);
 
+                // Store buffers for analysis
+                float **dst     = &analyze[i*FFT_TOTAL];
+                dst[FFT_IN]     = c->vTmpIn;
+                dst[FFT_SC]     = c->vScPtr;
+                dst[FFT_OUT]    = c->vData;
+
                 // Now c->vData contains processed signal, apply bypass
                 c->sBypass.process(c->vOutPtr, c->vTmpIn, c->vData, samples);
             }
+
+            // Perform FFT analysis
+            sAnalyzer.process(analyze, samples);
         }
 
         void mb_ringmod_sc::process(size_t samples)
@@ -1164,7 +1177,7 @@ namespace lsp
                 for (size_t j=0; j<meta::mb_ringmod_sc::BANDS_MAX; ++j)
                 {
                     ch_band_t * const cb    = &c->vBands[j];
-                    cb->fReduction          = 0.0f;
+                    cb->fReduction          = GAIN_AMP_P_60_DB;
                 }
             }
 
@@ -1311,34 +1324,25 @@ namespace lsp
                     v[0]                = v[-1];
                     v[1]                = v[-1];
 
-                    // Copy input FFT meter
-                    v                   = mesh->pvData[index++];
-                    if ((c->bFftIn) && (sAnalyzer.channel_active(i*2)))
+                    // Copy FFT meters: input, sidechain, output
+                    for (size_t j=0; j<FFT_TOTAL; ++j)
                     {
-                        sAnalyzer.get_spectrum(i*2, &v[2], vIndexes, meta::mb_ringmod_sc::FFT_MESH_POINTS);
-                        dsp::mul_k2(&v[2], fInGain, meta::mb_ringmod_sc::FFT_MESH_POINTS);
+                        const float an_id   = i*FFT_TOTAL + j;
+                        v                   = mesh->pvData[index++];
+                        if ((c->bFft[j]) && (sAnalyzer.channel_active(an_id)))
+                        {
+                            sAnalyzer.get_spectrum(an_id, &v[2], vIndexes, meta::mb_ringmod_sc::FFT_MESH_POINTS);
+                            dsp::mul_k2(&v[2], fInGain, meta::mb_ringmod_sc::FFT_MESH_POINTS);
+                        }
+                        else
+                            dsp::fill_zero(&v[2], meta::mb_ringmod_sc::FFT_MESH_POINTS);
+
+                        v[0]                = GAIN_AMP_M_INF_DB;
+                        v[1]                = v[2];
+                        v                  += meta::mb_ringmod_sc::FFT_MESH_POINTS + 2;
+                        v[0]                = v[-1];
+                        v[1]                = GAIN_AMP_M_INF_DB;
                     }
-                    else
-                        dsp::fill_zero(&v[2], meta::mb_ringmod_sc::FFT_MESH_POINTS);
-
-                    v[0]                = v[2];
-                    v[1]                = v[2];
-                    v                  += meta::mb_ringmod_sc::FFT_MESH_POINTS + 2;
-                    v[0]                = v[-1];
-                    v[1]                = v[-1];
-
-                    // Copy output FFT meter
-                    v                   = mesh->pvData[index++];
-                    if ((c->bFftIn) && (sAnalyzer.channel_active(i*2 + 1)))
-                        sAnalyzer.get_spectrum(i*2 + 1, &v[2], vIndexes, meta::mb_ringmod_sc::FFT_MESH_POINTS);
-                    else
-                        dsp::fill_zero(&v[2], meta::mb_ringmod_sc::FFT_MESH_POINTS);
-
-                    v[0]                = v[2];
-                    v[1]                = v[2];
-                    v                  += meta::mb_ringmod_sc::FFT_MESH_POINTS + 2;
-                    v[0]                = v[-1];
-                    v[1]                = v[-1];
                 }
 
                 // Output mesh data

@@ -97,10 +97,11 @@ namespace lsp
         LOG_CONTROL("react", "FFT reactivity", "Reactivity", U_MSEC, mb_ringmod_sc::REACT_TIME), \
         AMP_GAIN100("shift", "Shift gain", "Shift", 1.0f), \
         MESH("bfc", "Band filter charts", 9, mb_ringmod_sc::FFT_MESH_POINTS + 4), \
-        MESH("meters", "Band filter reduction meters", 1 + channels * 3, mb_ringmod_sc::FFT_MESH_POINTS + 4)
+        MESH("meters", "Band filter reduction meters", 1 + channels * 4, mb_ringmod_sc::FFT_MESH_POINTS + 4)
 
     #define RMOD_FFT_BUTTONS(id, name, alias) \
         SWITCH("ifft" id, "Input FFT analysis" name, "FFT In" name, 1), \
+        SWITCH("sfft" id, "Sidechain FFT analysis" name, "FFT Sc" name, 1), \
         SWITCH("offt" id, "Output FFT analysis" name, "FFT Out" name, 1)
 
     #define RMOD_COMMON_MONO \

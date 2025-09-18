@@ -69,6 +69,15 @@ namespace lsp
                     MODE_SPM,
                 };
 
+                enum fft_analysis_t
+                {
+                    FFT_IN,
+                    FFT_SC,
+                    FFT_OUT,
+
+                    FFT_TOTAL
+                };
+
                 typedef struct premix_t
                 {
                     float               fInToSc;                // Input -> Sidechain mix
@@ -164,15 +173,13 @@ namespace lsp
                     float              *vFftIn;                 // Input FFT graph
                     float              *vFftOut;                // Output FFT graph
 
-                    bool                bFftIn;                 // Input FFT analysis
-                    bool                bFftOut;                // Output FFT analysis
+                    bool                bFft[FFT_TOTAL];        // FFT analysis flags
 
                     plug::IPort        *pIn;                    // Input port
                     plug::IPort        *pOut;                   // Output port
                     plug::IPort        *pSc;                    // Sidechain port
                     plug::IPort        *pShmIn;                 // Shared memory link input
-                    plug::IPort        *pFftIn;                 // FFT analysis input
-                    plug::IPort        *pFftOut;                // FFT analysis output
+                    plug::IPort        *pFft[FFT_TOTAL];        // FFT analysis input
                 } channel_t;
 
             protected:
