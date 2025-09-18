@@ -69,13 +69,13 @@ namespace lsp
                     MODE_SPM,
                 };
 
-                enum fft_analysis_t
+                enum metering_t
                 {
-                    FFT_IN,
-                    FFT_SC,
-                    FFT_OUT,
+                    MTR_IN,
+                    MTR_SC,
+                    MTR_OUT,
 
-                    FFT_TOTAL
+                    MTR_TOTAL
                 };
 
                 typedef struct premix_t
@@ -168,18 +168,21 @@ namespace lsp
                     float              *vTmpLink;               // Replacement buffer for link (premix)
                     float              *vTmpSc;                 // Replacement buffer for sidechain (premix)
 
+                    float              *vSidechain;             // Sidechain buffer
                     float              *vData;                  // Data buffer
                     float              *vGain;                  // Gain characteristics
                     float              *vFftIn;                 // Input FFT graph
                     float              *vFftOut;                // Output FFT graph
 
-                    bool                bFft[FFT_TOTAL];        // FFT analysis flags
+                    float               vMeters[MTR_TOTAL];     // Level meters
+                    bool                bFft[MTR_TOTAL];        // FFT analysis flags
 
                     plug::IPort        *pIn;                    // Input port
                     plug::IPort        *pOut;                   // Output port
                     plug::IPort        *pSc;                    // Sidechain port
                     plug::IPort        *pShmIn;                 // Shared memory link input
-                    plug::IPort        *pFft[FFT_TOTAL];        // FFT analysis input
+                    plug::IPort        *pFft[MTR_TOTAL];        // FFT analysis input
+                    plug::IPort        *pMeters[MTR_TOTAL];     // Level meters
                 } channel_t;
 
             protected:

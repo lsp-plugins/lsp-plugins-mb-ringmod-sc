@@ -192,6 +192,7 @@ namespace lsp
                                       ) +
                                       nChannels * ( // channel_t::
                                           szof_buf * 3 + // vTmpIn, vTmpLink, vTmpSc
+                                          szof_buf + // vSidechain
                                           szof_buf + // vData
                                           szof_fft * 3 + // vGain, vFftIn, vFftOut
                                           meta::mb_ringmod_sc::BANDS_MAX * ( // ch_band_t::
@@ -212,7 +213,7 @@ namespace lsp
             vIndexes                = advance_ptr_bytes<uint32_t>(ptr, szof_ifft);
 
             // Initialize analyzer
-            if (!sAnalyzer.init(nChannels * FFT_TOTAL, meta::mb_ringmod_sc::FFT_RANK,
+            if (!sAnalyzer.init(nChannels * MTR_TOTAL, meta::mb_ringmod_sc::FFT_RANK,
                 MAX_SAMPLE_RATE, meta::mb_ringmod_sc::REFRESH_RATE))
                 return;
             sAnalyzer.set_rank(meta::mb_ringmod_sc::FFT_RANK);
@@ -273,20 +274,27 @@ namespace lsp
                 c->vTmpLink             = advance_ptr_bytes<float>(ptr, szof_buf);
                 c->vTmpSc               = advance_ptr_bytes<float>(ptr, szof_buf);
 
+                c->vSidechain           = advance_ptr_bytes<float>(ptr, szof_buf);
                 c->vData                = advance_ptr_bytes<float>(ptr, szof_buf);
                 c->vGain                = advance_ptr_bytes<float>(ptr, szof_fft);
                 c->vFftIn               = advance_ptr_bytes<float>(ptr, szof_fft);
                 c->vFftOut              = advance_ptr_bytes<float>(ptr, szof_fft);
 
-                for (size_t j=0; j<FFT_TOTAL; ++j)
+                for (size_t j=0; j<MTR_TOTAL; ++j)
+                {
+                    c->vMeters[j]           = GAIN_AMP_M_INF_DB;
                     c->bFft[j]              = true;
+                }
 
                 c->pIn                  = NULL;
                 c->pOut                 = NULL;
                 c->pSc                  = NULL;
 
-                for (size_t j=0; j<FFT_TOTAL; ++j)
+                for (size_t j=0; j<MTR_TOTAL; ++j)
+                {
                     c->pFft[j]              = NULL;
+                    c->pMeters[j]           = NULL;
+                }
             }
 
             // Bind ports
@@ -351,8 +359,10 @@ namespace lsp
             {
                 channel_t * const c = &vChannels[i];
 
-                for (size_t j=0; j<FFT_TOTAL; ++j)
+                for (size_t j=0; j<MTR_TOTAL; ++j)
                     BIND_PORT(c->pFft[j]);
+                for (size_t j=0; j<MTR_TOTAL; ++j)
+                    BIND_PORT(c->pMeters[j]);
             }
 
             // Bind split ports
@@ -622,11 +632,11 @@ namespace lsp
             {
                 channel_t * const c = &vChannels[i];
 
-                for (size_t j=0; j<FFT_TOTAL; ++j)
+                for (size_t j=0; j<MTR_TOTAL; ++j)
                 {
                     const bool fft  = c->pFft[j]->value() >= 0.5f;
                     c->bFft[j]      = fft;
-                    sAnalyzer.enable_channel(i*FFT_TOTAL + j, fft);
+                    sAnalyzer.enable_channel(i*MTR_TOTAL + j, fft);
                     if (fft)
                         has_active_channels     = true;
                 }
@@ -790,6 +800,8 @@ namespace lsp
             fScOutGain              = sc_gain * out_gain;
             fDryGain                = (dry_gain * drywet + 1.0f - drywet) * out_gain;
             fWetGain                = wet_gain * drywet * out_gain;
+            bOutIn                  = pOutIn->value() >= 0.5f;
+            bOutSc                  = pOutSc->value() >= 0.5f;
 
             // Apply latency compensation and report latency
             for (size_t i=0; i<nChannels; ++i)
@@ -905,13 +917,11 @@ namespace lsp
                 c->vScPtr           = (buf != NULL) ? buf : vEmptyBuffer;
 
                 // Apply delay compensation to the unprocessed sidechain signal
+                c->sScDelay.process(c->vSidechain, c->vScPtr, fScOutGain, samples);
                 if ((bOutSc) && (fScOutGain > GAIN_AMP_M_INF_DB))
-                    c->sScDelay.process(c->vData, c->vScPtr, fScOutGain, samples);
+                    dsp::copy(c->vData, c->vSidechain, samples);
                 else
-                {
-                    c->sScDelay.append(c->vScPtr, samples);
                     dsp::fill_zero(c->vData, samples);
-                }
             }
 
             // Apply sidechain pre-processing depending on selected source (stereo only)
@@ -1034,27 +1044,24 @@ namespace lsp
             // Compute the gain reduction
             // cb->vScData contains sidechain envelope signal
             // vBuffer will contain gain reduction
-            const float * const src     = &cb->vScData[sample];
+            const float * const sc      = &cb->vScData[sample];
             float * const dst           = &c->vData[sample];
             float * const tmp           = self->vBuffer;
             for (size_t j=0; j<samples; ++j)
-                tmp[j]                      = lsp_max(0.0f, GAIN_AMP_0_DB - src[j] * b->fAmount) * b->fGain;
+                tmp[j]                      = lsp_max(0.0f, GAIN_AMP_0_DB - sc[j] * b->fAmount) * b->fGain;
             cb->fReduction              = lsp_min(cb->fReduction, dsp::abs_min(tmp, samples));
 
             // Mix band signal to output if band is enabled
-            if (b->bOn)
+            if (b->bOn && self->bOutIn)
             {
                 // Pass dry (unprocessed) signal
-                const float dry_gain        = (self->bOutIn) ? self->fInGain * self->fDryGain : GAIN_AMP_M_INF_DB;
+                const float dry_gain        = self->fInGain * self->fDryGain;
                 if (dry_gain > GAIN_AMP_M_INF_DB)
                     dsp::fmadd_k3(dst, data, dry_gain, samples);
 
                 // Apply gain reduction to the signal and mix wet signal to the data buffer
-                if (self->bOutIn)
-                {
-                    dsp::mul2(tmp, data, samples);
-                    dsp::fmadd_k3(dst, tmp, self->fWetGain, samples);
-                }
+                dsp::mul2(tmp, data, samples);
+                dsp::fmadd_k3(dst, tmp, self->fInGain * self->fWetGain, samples);
             }
         }
 
@@ -1133,7 +1140,7 @@ namespace lsp
                 c->sDryDelay.process(c->vTmpIn, c->vInPtr, samples);
 
                 // c->vData contains sidechain signal with applied gain
-                // c->vTmpIn contains input signal with applied input gain
+                // c->vTmpIn contains input signal without applied input gain
                 if (bActive)
                 {
                     // Process wet signal
@@ -1143,13 +1150,20 @@ namespace lsp
                         c->sFFTCrossover.process(c->vTmpIn, samples);
                 }
                 else if ((bOutIn) && (fInGain >= GAIN_AMP_M_INF_DB))
-                    dsp::add2(c->vData, c->vTmpIn, samples);
+                    dsp::fmadd_k3(c->vData, c->vTmpIn, fInGain, samples);
 
                 // Store buffers for analysis
-                float **dst     = &analyze[i*FFT_TOTAL];
-                dst[FFT_IN]     = c->vTmpIn;
-                dst[FFT_SC]     = c->vScPtr;
-                dst[FFT_OUT]    = c->vData;
+                float **dst     = &analyze[i*MTR_TOTAL];
+                dst[MTR_IN]     = c->vTmpIn;
+                dst[MTR_SC]     = c->vSidechain;
+                dst[MTR_OUT]    = c->vData;
+
+                for (size_t j=0; j<MTR_TOTAL; ++j)
+                {
+                    const float v   = c->vMeters[j];
+                    const float pk  = dsp::abs_max(dst[j], samples);
+                    c->vMeters[j]   = lsp_max(v, (j == MTR_IN) ? pk * fInGain : pk);
+                }
 
                 // Now c->vData contains processed signal, apply bypass
                 c->sBypass.process(c->vOutPtr, c->vTmpIn, c->vData, samples);
@@ -1173,6 +1187,10 @@ namespace lsp
                 c->vSc              = c->pSc->buffer<float>();
                 c->vLink            = ((buf != NULL) && (buf->active())) ? buf->buffer() : NULL;
                 c->vOut             = c->pOut->buffer<float>();
+
+                // Reset meters
+                for (size_t j=0; j<MTR_TOTAL; ++j)
+                    c->vMeters[j]       = GAIN_AMP_M_INF_DB;
 
                 for (size_t j=0; j<meta::mb_ringmod_sc::BANDS_MAX; ++j)
                 {
@@ -1219,6 +1237,9 @@ namespace lsp
             for (size_t i=0; i<nChannels; ++i)
             {
                 channel_t *c        = &vChannels[i];
+
+                for (size_t j=0; j<MTR_TOTAL; ++j)
+                    c->pMeters[j]->set_value(c->vMeters[j]);
 
                 for (size_t j=0; j<meta::mb_ringmod_sc::BANDS_MAX; ++j)
                 {
@@ -1325,14 +1346,15 @@ namespace lsp
                     v[1]                = v[-1];
 
                     // Copy FFT meters: input, sidechain, output
-                    for (size_t j=0; j<FFT_TOTAL; ++j)
+                    for (size_t j=0; j<MTR_TOTAL; ++j)
                     {
-                        const float an_id   = i*FFT_TOTAL + j;
+                        const float an_id   = i*MTR_TOTAL + j;
                         v                   = mesh->pvData[index++];
                         if ((c->bFft[j]) && (sAnalyzer.channel_active(an_id)))
                         {
                             sAnalyzer.get_spectrum(an_id, &v[2], vIndexes, meta::mb_ringmod_sc::FFT_MESH_POINTS);
-                            dsp::mul_k2(&v[2], fInGain, meta::mb_ringmod_sc::FFT_MESH_POINTS);
+                            if (j == MTR_IN)
+                                dsp::mul_k2(&v[2], fInGain, meta::mb_ringmod_sc::FFT_MESH_POINTS);
                         }
                         else
                             dsp::fill_zero(&v[2], meta::mb_ringmod_sc::FFT_MESH_POINTS);

@@ -99,10 +99,13 @@ namespace lsp
         MESH("bfc", "Band filter charts", 9, mb_ringmod_sc::FFT_MESH_POINTS + 4), \
         MESH("meters", "Band filter reduction meters", 1 + channels * 4, mb_ringmod_sc::FFT_MESH_POINTS + 4)
 
-    #define RMOD_FFT_BUTTONS(id, name, alias) \
-        SWITCH("ifft" id, "Input FFT analysis" name, "FFT In" name, 1), \
-        SWITCH("sfft" id, "Sidechain FFT analysis" name, "FFT Sc" name, 1), \
-        SWITCH("offt" id, "Output FFT analysis" name, "FFT Out" name, 1)
+    #define RMOD_METER_BUTTONS(id, label, alias) \
+        SWITCH("ifft" id, "Input FFT analysis" label, "FFT In" alias, 1), \
+        SWITCH("sfft" id, "Sidechain FFT analysis" label, "FFT Sc" alias, 1), \
+        SWITCH("offt" id, "Output FFT analysis" label, "FFT Out" alias, 1), \
+        METER_GAIN("ilm" id, "Input level meter" label, GAIN_AMP_P_24_DB), \
+        METER_GAIN("slm" id, "Sidechain level meter" label, GAIN_AMP_P_24_DB), \
+        METER_GAIN("olm" id, "Output level meter" label, GAIN_AMP_P_24_DB)
 
     #define RMOD_COMMON_MONO \
         RMOD_COMMON(1)
@@ -171,7 +174,7 @@ namespace lsp
             RMOD_PREMIX,
             RMOD_COMMON_MONO,
 
-            RMOD_FFT_BUTTONS("", "", ""),
+            RMOD_METER_BUTTONS("", "", ""),
 
             RMOD_SPLIT("_1", " 1", 0.0f, 40.0f),
             RMOD_SPLIT("_2", " 2", 1.0f, 100.0f),
@@ -201,8 +204,8 @@ namespace lsp
             RMOD_PREMIX,
             RMOD_COMMON_STEREO,
 
-            RMOD_FFT_BUTTONS("_l", " Left", " L"),
-            RMOD_FFT_BUTTONS("_r", " Right", " R"),
+            RMOD_METER_BUTTONS("_l", " Left", " L"),
+            RMOD_METER_BUTTONS("_r", " Right", " R"),
 
             RMOD_SPLIT("_1", " 1", 0.0f, 40.0f),
             RMOD_SPLIT("_2", " 2", 1.0f, 100.0f),
