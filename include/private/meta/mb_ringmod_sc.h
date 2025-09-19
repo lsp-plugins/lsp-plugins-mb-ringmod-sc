@@ -64,7 +64,7 @@ namespace lsp
             static constexpr float  DUCK_STEP           = 0.005f;
 
             static constexpr float  AMOUNT_MIN          = -12.0f;
-            static constexpr float  AMOUNT_MAX          = 0.0f;
+            static constexpr float  AMOUNT_MAX          = 24.0f;
             static constexpr float  AMOUNT_DFL          = 0.0f;
             static constexpr float  AMOUNT_STEP         = 0.01f;
 

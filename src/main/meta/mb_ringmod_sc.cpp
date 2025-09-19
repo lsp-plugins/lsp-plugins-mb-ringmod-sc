@@ -142,14 +142,14 @@ namespace lsp
     #define RMOD_BAND_COMMON(id, label, alias) \
         SWITCH("bs" id, "Solo band" label, "Solo" alias, 0.0f), \
         SWITCH("bm" id, "Mute band" label, "Mute" alias, 0.0f), \
-        SWITCH("be" id, "Enable band processing" label, "Enable" alias, 0.0f), \
+        SWITCH("be" id, "Enable band processing" label, "Enable" alias, 1.0f), \
         CONTROL("lk" id, "Lookahead time" label, "Lookahead" alias, U_MSEC, mb_ringmod_sc::LOOKAHEAD), \
         CONTROL("ht" id, "Hold time" label, "Hold" alias, U_MSEC, mb_ringmod_sc::HOLD), \
         LOG_CONTROL("rt" id, "Release time" label, "Release" alias, U_MSEC, mb_ringmod_sc::RELEASE), \
         CONTROL("dt" id, "Ducking time" label, "Duck" alias, U_MSEC, mb_ringmod_sc::DUCK), \
         CONTROL("am" id, "Amount" label, "Amount" alias, U_DB, mb_ringmod_sc::AMOUNT), \
         AMP_GAIN10("bg" id, "Band Gain" label, "Gain" alias, GAIN_AMP_0_DB), \
-        METER("bfe" id, "Frequency range end" label, U_HZ, mb_ringmod_sc::OUT_FREQ)
+        METER("fre" id, "Frequency range end" label, U_HZ, mb_ringmod_sc::OUT_FREQ)
 
     #define RMOD_BAND_METERS(id, label) \
         METER_OUT_GAIN("rlm" id, "Reduction level meter" label, GAIN_AMP_0_DB)

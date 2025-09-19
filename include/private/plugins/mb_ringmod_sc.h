@@ -114,12 +114,13 @@ namespace lsp
                     uint32_t            nLatency;               // Compensation latency of specific band
                     uint32_t            nDuck;                  // Compensation of ducking delay
                     float               fStereoLink;            // Stereo link between channels
-                    bool                bEnabled;               // Band is enabled
-                    bool                bOn;                    // Band is enabled
+                    bool                bActive;                // Band is active
+                    bool                bOn;                    // Apply band processing
+                    bool                bMute;                  // Mute band
 
                     plug::IPort        *pSolo;                  // Solo band
                     plug::IPort        *pMute;                  // Mute band
-                    plug::IPort        *pEnable;                // Enable band
+                    plug::IPort        *pOn;                    // Apply band processing
                     plug::IPort        *pLookahead;             // Look-ahead time
                     plug::IPort        *pHold;                  // Hold time
                     plug::IPort        *pRelease;               // Release time

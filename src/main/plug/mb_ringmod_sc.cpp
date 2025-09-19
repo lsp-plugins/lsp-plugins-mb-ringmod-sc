@@ -148,12 +148,13 @@ namespace lsp
                 b->nDuck            = 0;
                 b->fStereoLink      = 0.0f;
 
-                b->bEnabled         = false;
+                b->bActive          = false;
                 b->bOn              = false;
+                b->bMute            = false;
 
                 b->pSolo            = NULL;
                 b->pMute            = NULL;
-                b->pEnable          = NULL;
+                b->pOn              = NULL;
                 b->pLookahead       = NULL;
                 b->pHold            = NULL;
                 b->pRelease         = NULL;
@@ -383,7 +384,7 @@ namespace lsp
 
                 BIND_PORT(b->pSolo);
                 BIND_PORT(b->pMute);
-                BIND_PORT(b->pEnable);
+                BIND_PORT(b->pOn);
                 BIND_PORT(b->pLookahead);
                 BIND_PORT(b->pHold);
                 BIND_PORT(b->pRelease);
@@ -531,7 +532,7 @@ namespace lsp
 
             // Make unordered list of enabled bands
             band_t *b               = &vBands[0];
-            b->bEnabled             = true;
+            b->bActive              = true;
             b->fFreqStart           = 0.0f;
             plan[plan_size++]       = b;
 
@@ -540,22 +541,22 @@ namespace lsp
                 split_t *s              = &vSplits[i-1];
                 b                       = &vBands[i];
 
-                const bool enabled      = s->pEnabled->value() >= 0.5f;
+                const bool active       = s->pEnabled->value() >= 0.5f;
                 const float freq        = s->pFreq->value();
 
-                if (b->bEnabled != enabled)
+                if (b->bActive != active)
                 {
-                    b->bEnabled             = enabled;
+                    b->bActive              = active;
                     bUpdFilters             = true;
                 }
                 if (b->fFreqStart != freq)
                 {
                     b->fFreqStart           = freq;
-                    if (b->bEnabled)
+                    if (b->bActive)
                         bUpdFilters             = true;
                 }
 
-                if (b->bEnabled)
+                if (b->bActive)
                     plan[plan_size++]       = b;
             }
 
@@ -671,7 +672,7 @@ namespace lsp
                     {
                         // Configure split point
                         band_t * const b        = &vBands[j];
-                        const size_t slope      = (b->bEnabled) ? iir_slope : dspu::CROSS_SLOPE_OFF;
+                        const size_t slope      = (b->bActive) ? iir_slope : dspu::CROSS_SLOPE_OFF;
                         const size_t spi        = j - 1;
                         c->sCrossover.set_slope(spi, slope);
                         c->sCrossover.set_frequency(spi, b->fFreqStart);
@@ -682,12 +683,12 @@ namespace lsp
 
                     if (c->sCrossover.needs_reconfiguration())
                     {
-                        bSyncFilters        = true;
+                        bUpdFilters         = true;
                         c->sCrossover.reconfigure();
                     }
                     if (c->sScCrossover.needs_reconfiguration())
                     {
-                        bSyncFilters        = true;
+                        bUpdFilters         = true;
                         c->sScCrossover.reconfigure();
                     }
                 }
@@ -704,8 +705,8 @@ namespace lsp
                     {
                         band_t * const b    = &vBands[j];
 
-                        c->sFFTCrossover.enable_band(j, b->bEnabled);
-                        if (b->bEnabled)
+                        c->sFFTCrossover.enable_band(j, b->bActive);
+                        if (b->bActive)
                         {
                             const bool lpf_on   = b->fFreqEnd < fSampleRate * 0.5f;
                             const bool hpf_on   = b->fFreqStart > 0.0f;
@@ -742,7 +743,7 @@ namespace lsp
                 {
                     // Configure split point
                     band_t * const b        = &vBands[i];
-                    if (b->bEnabled)
+                    if (b->bActive)
                     {
                         if (nMode == MODE_IIR)
                         {
@@ -771,8 +772,10 @@ namespace lsp
                 b->nDuck            = nLatency + dspu::millis_to_samples(fSampleRate, b->pDuck->value());
                 b->fGain            = b->pGain->value();
                 b->fStereoLink      = (b->pStereoLink != NULL) ? lsp_max(b->pStereoLink->value() * 0.01f, 0.0f) : 0.0f;
+                b->fAmount          = dspu::db_to_gain(b->pAmount->value());
+                b->bOn              = b->pOn->value() >= 0.5f;
 
-                if ((!has_solo) && (b->bEnabled))
+                if ((!has_solo) && (b->bOn))
                     has_solo            = b->pSolo->value() >= 0.5f;
 
                 nLatency            = lsp_max(nLatency, b->nLatency);
@@ -784,7 +787,7 @@ namespace lsp
                 const bool solo     = b->pSolo->value() >= 0.5f;
                 const bool mute     = b->pMute->value() >= 0.5f;
 
-                b->bOn              = (b->bEnabled) && (!mute) && ((!has_solo) || (solo));
+                b->bMute            = mute || ((has_solo) && (!solo));
                 b->nLatency         = nLatency - b->nLatency;
             }
 
@@ -1007,7 +1010,7 @@ namespace lsp
             for (size_t i=0; i<meta::mb_ringmod_sc::BANDS_MAX; ++i)
             {
                 band_t * const b        = &vBands[i];
-                if (!b->bOn)
+                if (!b->bActive)
                     continue;
 
                 ch_band_t * const clb   = &vChannels[0].vBands[i];
@@ -1041,18 +1044,27 @@ namespace lsp
             ch_band_t * const cb        = &c->vBands[band];
             band_t * const b            = &self->vBands[band];
 
-            // Compute the gain reduction
-            // cb->vScData contains sidechain envelope signal
-            // vBuffer will contain gain reduction
+            // Check that band is muted
+            if (b->bMute)
+                return;
+
             const float * const sc      = &cb->vScData[sample];
             float * const dst           = &c->vData[sample];
-            float * const tmp           = self->vBuffer;
-            for (size_t j=0; j<samples; ++j)
-                tmp[j]                      = lsp_max(0.0f, GAIN_AMP_0_DB - sc[j] * b->fAmount) * b->fGain;
-            cb->fReduction              = lsp_min(cb->fReduction, dsp::abs_min(tmp, samples));
+            float * tmp                 = NULL;
+
+            if (b->bOn)
+            {
+                tmp                         = self->vBuffer;
+                // Compute the gain reduction
+                // cb->vScData contains sidechain envelope signal
+                // vBuffer will contain gain reduction
+                for (size_t j=0; j<samples; ++j)
+                    tmp[j]                      = lsp_max(0.0f, GAIN_AMP_0_DB - sc[j] * b->fAmount) * b->fGain;
+                cb->fReduction              = lsp_min(cb->fReduction, dsp::abs_min(tmp, samples));
+            }
 
             // Mix band signal to output if band is enabled
-            if (b->bOn && self->bOutIn)
+            if (self->bOutIn)
             {
                 // Pass dry (unprocessed) signal
                 const float dry_gain        = self->fInGain * self->fDryGain;
@@ -1060,8 +1072,13 @@ namespace lsp
                     dsp::fmadd_k3(dst, data, dry_gain, samples);
 
                 // Apply gain reduction to the signal and mix wet signal to the data buffer
-                dsp::mul2(tmp, data, samples);
-                dsp::fmadd_k3(dst, tmp, self->fInGain * self->fWetGain, samples);
+                if (tmp != NULL)
+                {
+                    dsp::mul2(tmp, data, samples);
+                    dsp::fmadd_k3(dst, tmp, self->fInGain * self->fWetGain, samples);
+                }
+                else
+                    dsp::fmadd_k3(dst, data, self->fInGain * self->fWetGain, samples);
             }
         }
 
@@ -1195,7 +1212,7 @@ namespace lsp
                 for (size_t j=0; j<meta::mb_ringmod_sc::BANDS_MAX; ++j)
                 {
                     ch_band_t * const cb    = &c->vBands[j];
-                    cb->fReduction          = GAIN_AMP_P_60_DB;
+                    cb->fReduction          = GAIN_AMP_0_DB;
                 }
             }
 
@@ -1264,7 +1281,9 @@ namespace lsp
                 for (size_t j=0; j<meta::mb_ringmod_sc::BANDS_MAX; ++j)
                 {
                     band_t * const b    = &vBands[j];
-                    if (!b->bOn)
+                    if (!b->bActive)
+                        continue;
+                    if (b->bMute)
                         continue;
 
                     ch_band_t * const cb= &c->vBands[j];
