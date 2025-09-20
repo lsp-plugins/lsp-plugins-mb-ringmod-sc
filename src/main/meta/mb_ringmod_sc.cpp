@@ -85,6 +85,7 @@ namespace lsp
         SWITCH("out_in", "Output input signal", "Out In", 1), \
         SWITCH("out_sc", "Output sidechain signal", "Out SC", 1), \
         SWITCH("active", "Sidechain processing active", "Active", 1), \
+        SWITCH("invert", "Invert sidechain processing", "Invert", 0), \
         COMBO("type", "Sidechain type", "Type", 1, ringmod_sc_types), \
         COMBO("mode", "Crossover mode", "Mode", 0, mb_ringmod_sc_modes), \
         COMBO("slope", "Crossover slope", "Slope", 2, mb_ringmod_sc_slopes), \
@@ -158,9 +159,9 @@ namespace lsp
         RMOD_BAND_COMMON(id, label, alias), \
         RMOD_BAND_METERS(id, label)
 
-    #define RMOD_BAND_STEREO(id, label, alias) \
+    #define RMOD_BAND_STEREO(id, label, alias, slink) \
         RMOD_BAND_COMMON(id, label, alias), \
-        PERCENTS("bsl" id, "Band stereo linking" label, "Stereo link" label, 100.0f, 0.1f), \
+        PERCENTS("bsl" id, "Band stereo linking" label, "Stereo link" label, slink, 0.1f), \
         RMOD_BAND_METERS(id "l", label " Left"), \
         RMOD_BAND_METERS(id "r", label " Right")
 
@@ -215,14 +216,14 @@ namespace lsp
             RMOD_SPLIT("_6", " 6", 1.0f, 3984.0f),
             RMOD_SPLIT("_7", " 7", 0.0f, 10000.0f),
 
-            RMOD_BAND_STEREO("_1", " 1", " 1"),
-            RMOD_BAND_STEREO("_2", " 2", " 2"),
-            RMOD_BAND_STEREO("_3", " 3", " 3"),
-            RMOD_BAND_STEREO("_4", " 4", " 4"),
-            RMOD_BAND_STEREO("_5", " 5", " 5"),
-            RMOD_BAND_STEREO("_6", " 6", " 6"),
-            RMOD_BAND_STEREO("_7", " 7", " 7"),
-            RMOD_BAND_STEREO("_8", " 8", " 8"),
+            RMOD_BAND_STEREO("_1", " 1", " 1", 100.0f),
+            RMOD_BAND_STEREO("_2", " 2", " 2", 85.0f),
+            RMOD_BAND_STEREO("_3", " 3", " 3", 71.0f),
+            RMOD_BAND_STEREO("_4", " 4", " 4", 57.0f),
+            RMOD_BAND_STEREO("_5", " 5", " 5", 43.0f),
+            RMOD_BAND_STEREO("_6", " 6", " 6", 28.0f),
+            RMOD_BAND_STEREO("_7", " 7", " 7", 14.0f),
+            RMOD_BAND_STEREO("_8", " 8", " 8", 0.0f),
 
             PORTS_END
         };

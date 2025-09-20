@@ -97,6 +97,13 @@ namespace lsp
             fWetGain            = GAIN_AMP_0_DB;
             fScOutGain          = GAIN_AMP_0_DB;
 
+            bUpdFilters         = true;
+            bSyncFilters        = false;
+            bActive             = true;
+            bInvert             = false;
+            bOutIn              = true;
+            bOutSc              = true;
+
             pBypass             = NULL;
             pGainIn             = NULL;
             pGainSc             = NULL;
@@ -104,6 +111,7 @@ namespace lsp
             pOutIn              = NULL;
             pOutSc              = NULL;
             pActive             = NULL;
+            pInvert             = NULL;
             pType               = NULL;
             pMode               = NULL;
             pSlope              = NULL;
@@ -116,12 +124,6 @@ namespace lsp
             pFilterMesh         = NULL;
             pMeterMesh          = NULL;
             pSource             = NULL;
-
-            bUpdFilters         = true;
-            bSyncFilters        = false;
-            bActive             = true;
-            bOutIn              = true;
-            bOutSc              = true;
 
             // Bind split ports
             for (size_t i=0; i<meta::mb_ringmod_sc::BANDS_MAX-1; ++i)
@@ -340,6 +342,7 @@ namespace lsp
             BIND_PORT(pOutIn);
             BIND_PORT(pOutSc);
             BIND_PORT(pActive);
+            BIND_PORT(pInvert);
             BIND_PORT(pType);
             BIND_PORT(pMode);
             BIND_PORT(pSlope);
@@ -615,6 +618,7 @@ namespace lsp
             nSource                 = (pSource != NULL) ? pSource->value() : SC_SRC_LEFT_RIGHT;
             nMode                   = pMode->value();
             bActive                 = pActive->value() >= 0.5f;
+            bInvert                 = pInvert->value() >= 0.5f;
 
             if (nMode != old_mode)
             {
@@ -1050,8 +1054,13 @@ namespace lsp
                 // Compute the gain reduction
                 // cb->vScData contains sidechain envelope signal
                 // vBuffer will contain gain reduction
-                for (size_t j=0; j<samples; ++j)
-                    tmp[j]                      = lsp_max(0.0f, GAIN_AMP_0_DB - env[j] * b->fAmount) * b->fGain;
+                if (self->bInvert)
+                    dsp::mul_k3(tmp, env, b->fAmount * b->fGain, samples);
+                else
+                {
+                    for (size_t j=0; j<samples; ++j)
+                        tmp[j]                      = lsp_max(0.0f, GAIN_AMP_0_DB - env[j] * b->fAmount) * b->fGain;
+                }
                 cb->fReduction              = lsp_min(cb->fReduction, dsp::abs_min(tmp, samples));
             }
 

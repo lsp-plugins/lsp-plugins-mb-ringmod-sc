@@ -212,6 +212,7 @@ namespace lsp
                 bool                bUpdFilters;            // Need to update filter state with UI
                 bool                bSyncFilters;           // Need to synchronize filter state with UI
                 bool                bActive;                // Apply sidechain processing
+                bool                bInvert;                // Invert sidechain processing
                 bool                bOutIn;                 // Output input signal
                 bool                bOutSc;                 // Output sidechain signal
 
@@ -222,6 +223,7 @@ namespace lsp
                 plug::IPort        *pOutIn;                 // Output processed input signal
                 plug::IPort        *pOutSc;                 // Output sidechain signal
                 plug::IPort        *pActive;                // Activity
+                plug::IPort        *pInvert;                // Invert
                 plug::IPort        *pType;                  // Type of sidechain
                 plug::IPort        *pMode;                  // Mode of sidechain
                 plug::IPort        *pSlope;                 // Slope of sidechain
