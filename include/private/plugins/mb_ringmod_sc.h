@@ -147,8 +147,9 @@ namespace lsp
                 typedef struct channel_t
                 {
                     dspu::Bypass        sBypass;                // Bypass
-                    dspu::Delay         sDryDelay;              // Delay for dry (unprocessed) signal
+                    dspu::Delay         sInDelay;               // Delay for input signal
                     dspu::Delay         sScDelay;               // Delay for the sidechain signal
+                    dspu::Delay         sDryDelay;              // Delay for dry (unprocessed) signal
                     dspu::Crossover     sCrossover;             // Crossover
                     dspu::Crossover     sScCrossover;           // Sidechain Crossover
                     dspu::FFTCrossover  sFFTCrossover;          // FFT crossover
@@ -244,6 +245,7 @@ namespace lsp
                 static void         process_sc_band(void *object, void *subject, size_t band, const float *data, size_t sample, size_t samples);
                 static size_t       select_fft_rank(size_t sample_rate);
                 static size_t       decode_iir_slope(size_t slope);
+                static float        decode_spm_slope(size_t slope);
 
             protected:
                 void                do_destroy();

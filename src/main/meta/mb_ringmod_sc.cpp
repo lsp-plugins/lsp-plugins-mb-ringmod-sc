@@ -72,8 +72,8 @@ namespace lsp
         {
             { "12 dB/oct",      "eq.slope.12dbo"            },
             { "24 dB/oct",      "eq.slope.24dbo"            },
-            { "36 dB/oct",      "eq.slope.36dbo"            },
             { "48 dB/oct",      "eq.slope.48dbo"            },
+            { "72 dB/oct",      "eq.slope.72dbo"            },
             { NULL, NULL }
         };
 

@@ -239,8 +239,9 @@ namespace lsp
                 channel_t * const c     = &vChannels[i];
 
                 c->sBypass.construct();
-                c->sDryDelay.construct();
+                c->sInDelay.construct();
                 c->sScDelay.construct();
+                c->sDryDelay.construct();
                 c->sCrossover.construct();
                 c->sScCrossover.construct();
                 c->sFFTCrossover.construct();
@@ -432,8 +433,9 @@ namespace lsp
                     channel_t *c    = &vChannels[i];
 
                     c->sBypass.destroy();
-                    c->sDryDelay.destroy();
+                    c->sInDelay.destroy();
                     c->sScDelay.destroy();
+                    c->sDryDelay.destroy();
                     c->sCrossover.destroy();
                     c->sScCrossover.destroy();
                     c->sFFTCrossover.destroy();
@@ -473,6 +475,7 @@ namespace lsp
             const size_t sc_max_delay   =
                 in_max_delay +
                 dspu::millis_to_samples(sr, meta::mb_ringmod_sc::DUCK_MAX) ;
+            const size_t fft_max_delay  = (1 << fft_rank) + BUFFER_SIZE;
 
             // Update analyzer's sample rate
             sAnalyzer.set_sample_rate(sr);
@@ -484,8 +487,9 @@ namespace lsp
                 channel_t *c = &vChannels[i];
 
                 c->sBypass.init(sr);
-                c->sDryDelay.init(in_max_delay);
+                c->sInDelay.init(in_max_delay);
                 c->sScDelay.init(in_max_delay);
+                c->sDryDelay.init(fft_max_delay);
                 c->sCrossover.set_sample_rate(sr);
                 c->sScCrossover.set_sample_rate(sr);
                 c->sFFTCrossover.set_sample_rate(sr);
@@ -501,8 +505,8 @@ namespace lsp
                         c->sFFTCrossover.set_handler(j, process_band, this, c);
                         c->sFFTScCrossover.set_handler(j, process_sc_band, this, c);
                     }
-                    c->sFFTCrossover.set_phase(i);
-                    c->sFFTScCrossover.set_phase(i);
+                    c->sFFTCrossover.set_phase(float(i) / nChannels);
+                    c->sFFTScCrossover.set_phase(float(i) / nChannels);
                 }
 
                 for (size_t j=0; j<meta::mb_ringmod_sc::BANDS_MAX; ++j)
@@ -598,6 +602,19 @@ namespace lsp
             return dspu::CROSS_SLOPE_OFF;
         }
 
+        float mb_ringmod_sc::decode_spm_slope(size_t slope)
+        {
+            switch (slope)
+            {
+                case 0: return -12.0f;
+                case 1: return -24.0f;
+                case 2: return -48.0f;
+                case 3: return -72.0f;
+                default: break;
+            }
+            return 0.0f;
+        }
+
         void mb_ringmod_sc::update_settings()
         {
             const bool bypass       = pBypass->value() >= 0.5f;
@@ -627,7 +644,7 @@ namespace lsp
                 for (size_t i=0; i<nChannels; ++i)
                 {
                     channel_t *c        = &vChannels[i];
-                    c->sDryDelay.clear();
+                    c->sInDelay.clear();
                     c->sScDelay.clear();
                     c->sFFTCrossover.clear();
                     c->sFFTScCrossover.clear();
@@ -702,7 +719,7 @@ namespace lsp
             }
             else // nMode = MODE_SPM
             {
-                const float  fft_slope  = (size_t(pSlope->value()) + 1) * -12.0f;
+                const float  fft_slope  = decode_spm_slope(pSlope->value());
 
                 for (size_t i=0; i<nChannels; ++i)
                 {
@@ -713,6 +730,7 @@ namespace lsp
                         band_t * const b    = &vBands[j];
 
                         c->sFFTCrossover.enable_band(j, b->bActive);
+                        c->sFFTScCrossover.enable_band(j, b->bActive);
                         if (b->bActive)
                         {
                             const bool lpf_on   = b->fFreqEnd < fSampleRate * 0.5f;
@@ -814,15 +832,17 @@ namespace lsp
             bOutSc                  = pOutSc->value() >= 0.5f;
 
             // Apply latency compensation and report latency
+            const size_t xover_latency = (nMode == MODE_SPM) ? vChannels[0].sFFTCrossover.latency() : 0;
+
             for (size_t i=0; i<nChannels; ++i)
             {
                 channel_t * const c = &vChannels[i];
 
-                c->sDryDelay.set_delay(nLatency);
+                c->sInDelay.set_delay(nLatency);
                 c->sScDelay.set_delay(nLatency);
+                c->sDryDelay.set_delay(xover_latency);
             }
 
-            const size_t xover_latency = (nMode == MODE_SPM) ? vChannels[0].sFFTCrossover.latency() : 0;
             set_latency(nLatency + xover_latency);
         }
 
@@ -1178,7 +1198,7 @@ namespace lsp
                 dsp::fill_zero(c->vDataOut, samples);
 
                 // Apply latency compensation
-                c->sDryDelay.process(c->vTmpIn, c->vInPtr, samples);
+                c->sInDelay.process(c->vTmpIn, c->vInPtr, samples);
 
                 // Process wet signal
                 if (nMode == MODE_IIR)
@@ -1209,6 +1229,7 @@ namespace lsp
                 }
 
                 // Now c->vDataOut contains processed signal, apply bypass
+                c->sDryDelay.process(c->vTmpIn, c->vTmpIn, samples);
                 c->sBypass.process(c->vOutPtr, c->vTmpIn, c->vDataOut, samples);
             }
 
