@@ -19,7 +19,7 @@
 #
 
 # Package version
-ARTIFACT_ID                 = LSP_MB_RINGMOD_SC
+ARTIFACT_ID                 = LSP_PLUGINS_MB_RINGMOD_SC
 ARTIFACT_NAME               = lsp-plugins-mb-ringmod-sc
 ARTIFACT_TYPE               = plug
 ARTIFACT_DESC               = LSP Multiband Ring-Modulated Sidechain

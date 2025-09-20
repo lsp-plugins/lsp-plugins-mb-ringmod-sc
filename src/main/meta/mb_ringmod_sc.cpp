@@ -23,15 +23,15 @@
 #include <lsp-plug.in/shared/meta/developers.h>
 #include <private/meta/mb_ringmod_sc.h>
 
-#define LSP_MB_RINGMOD_SC_VERSION_MAJOR       1
-#define LSP_MB_RINGMOD_SC_VERSION_MINOR       0
-#define LSP_MB_RINGMOD_SC_VERSION_MICRO       0
+#define LSP_PLUGINS_MB_RINGMOD_SC_VERSION_MAJOR         1
+#define LSP_PLUGINS_MB_RINGMOD_SC_VERSION_MINOR         0
+#define LSP_PLUGINS_MB_RINGMOD_SC_VERSION_MICRO         0
 
-#define LSP_MB_RINGMOD_SC_VERSION  \
+#define LSP_PLUGINS_MB_RINGMOD_SC_VERSION  \
     LSP_MODULE_VERSION( \
-        LSP_MB_RINGMOD_SC_VERSION_MAJOR, \
-        LSP_MB_RINGMOD_SC_VERSION_MINOR, \
-        LSP_MB_RINGMOD_SC_VERSION_MICRO  \
+        LSP_PLUGINS_MB_RINGMOD_SC_VERSION_MAJOR, \
+        LSP_PLUGINS_MB_RINGMOD_SC_VERSION_MINOR, \
+        LSP_PLUGINS_MB_RINGMOD_SC_VERSION_MICRO  \
     )
 
 namespace lsp
@@ -260,7 +260,7 @@ namespace lsp
                 LSP_CLAP_URI("mb_ringmod_sc_mono"),
                 LSP_GST_UID("mb_ringmod_sc_mono"),
             },
-            LSP_MB_RINGMOD_SC_VERSION,
+            LSP_PLUGINS_MB_RINGMOD_SC_VERSION,
             plugin_classes,
             clap_features_mono,
             E_DUMP_STATE | E_INLINE_DISPLAY,
@@ -290,7 +290,7 @@ namespace lsp
                 LSP_CLAP_URI("mb_ringmod_sc_stereo"),
                 LSP_GST_UID("mb_ringmod_sc_stereo"),
             },
-            LSP_MB_RINGMOD_SC_VERSION,
+            LSP_PLUGINS_MB_RINGMOD_SC_VERSION,
             plugin_classes,
             clap_features_stereo,
             E_DUMP_STATE | E_INLINE_DISPLAY,
