@@ -169,8 +169,9 @@ namespace lsp
                     float              *vTmpLink;               // Replacement buffer for link (premix)
                     float              *vTmpSc;                 // Replacement buffer for sidechain (premix)
 
-                    float              *vSidechain;             // Sidechain buffer
-                    float              *vData;                  // Data buffer
+                    float              *vDataIn;                // Input data buffer after crossover
+                    float              *vSidechain;             // Sidechain buffer after crossover
+                    float              *vDataOut;               // Data buffer after crossover and processing
                     float              *vGain;                  // Gain characteristics
                     float              *vFftIn;                 // Input FFT graph
                     float              *vFftOut;                // Output FFT graph

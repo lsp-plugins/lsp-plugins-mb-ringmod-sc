@@ -193,8 +193,9 @@ namespace lsp
                                       ) +
                                       nChannels * ( // channel_t::
                                           szof_buf * 3 + // vTmpIn, vTmpLink, vTmpSc
+                                          szof_buf + // vDataIn
                                           szof_buf + // vSidechain
-                                          szof_buf + // vData
+                                          szof_buf + // vDataOut
                                           szof_fft * 3 + // vGain, vFftIn, vFftOut
                                           meta::mb_ringmod_sc::BANDS_MAX * ( // ch_band_t::
                                               szof_buf // vScData
@@ -275,8 +276,9 @@ namespace lsp
                 c->vTmpLink             = advance_ptr_bytes<float>(ptr, szof_buf);
                 c->vTmpSc               = advance_ptr_bytes<float>(ptr, szof_buf);
 
+                c->vDataIn              = advance_ptr_bytes<float>(ptr, szof_buf);
                 c->vSidechain           = advance_ptr_bytes<float>(ptr, szof_buf);
-                c->vData                = advance_ptr_bytes<float>(ptr, szof_buf);
+                c->vDataOut             = advance_ptr_bytes<float>(ptr, szof_buf);
                 c->vGain                = advance_ptr_bytes<float>(ptr, szof_fft);
                 c->vFftIn               = advance_ptr_bytes<float>(ptr, szof_fft);
                 c->vFftOut              = advance_ptr_bytes<float>(ptr, szof_fft);
@@ -918,13 +920,6 @@ namespace lsp
                                       c->vInPtr;
 
                 c->vScPtr           = (buf != NULL) ? buf : vEmptyBuffer;
-
-                // Apply delay compensation to the unprocessed sidechain signal
-                c->sScDelay.process(c->vSidechain, c->vScPtr, fScOutGain, samples);
-                if ((bOutSc) && (fScOutGain > GAIN_AMP_M_INF_DB))
-                    dsp::copy(c->vData, c->vSidechain, samples);
-                else
-                    dsp::fill_zero(c->vData, samples);
             }
 
             // Apply sidechain pre-processing depending on selected source (stereo only)
@@ -996,6 +991,7 @@ namespace lsp
             for (size_t i=0; i<nChannels; ++i)
             {
                 channel_t *c        = &vChannels[i];
+                dsp::fill_zero(c->vSidechain, samples);
 
                 if (nMode == MODE_IIR)
                     c->sScCrossover.process(c->vScPtr, samples);
@@ -1044,12 +1040,7 @@ namespace lsp
             ch_band_t * const cb        = &c->vBands[band];
             band_t * const b            = &self->vBands[band];
 
-            // Check that band is muted
-            if (b->bMute)
-                return;
-
             const float * const sc      = &cb->vScData[sample];
-            float * const dst           = &c->vData[sample];
             float * tmp                 = NULL;
 
             if (b->bOn)
@@ -1063,11 +1054,23 @@ namespace lsp
                 cb->fReduction              = lsp_min(cb->fReduction, dsp::abs_min(tmp, samples));
             }
 
+            if (b->bMute)
+                return;
+
+            // Mix signal to input buffer after crossover
+            {
+                float * const dst           = &c->vDataIn[sample];
+                dsp::fmadd_k3(dst, data, self->fInGain, samples);
+            }
+
             // Mix band signal to output if band is enabled
             if (self->bOutIn)
             {
+                float * const dst           = &c->vDataOut[sample];
+
                 // Pass dry (unprocessed) signal
                 const float dry_gain        = self->fInGain * self->fDryGain;
+                const float wet_gain        = self->fInGain * self->fWetGain;
                 if (dry_gain > GAIN_AMP_M_INF_DB)
                     dsp::fmadd_k3(dst, data, dry_gain, samples);
 
@@ -1075,10 +1078,10 @@ namespace lsp
                 if (tmp != NULL)
                 {
                     dsp::mul2(tmp, data, samples);
-                    dsp::fmadd_k3(dst, tmp, self->fInGain * self->fWetGain, samples);
+                    dsp::fmadd_k3(dst, tmp, wet_gain, samples);
                 }
                 else
-                    dsp::fmadd_k3(dst, data, self->fInGain * self->fWetGain, samples);
+                    dsp::fmadd_k3(dst, data, wet_gain, samples);
             }
         }
 
@@ -1088,6 +1091,13 @@ namespace lsp
             channel_t * const c         = static_cast<channel_t *>(subject);
             ch_band_t * const cb        = &c->vBands[band];
             band_t * const b            = &self->vBands[band];
+
+            // Need to pass sidechain to output?
+            if ((!b->bMute) && (self->bOutSc) && (self->fScOutGain > GAIN_AMP_M_INF_DB))
+            {
+                float * const sc            = &c->vSidechain[sample];
+                dsp::fmadd_k3(sc, data, self->fScOutGain, samples);
+            }
 
             // Transform sidechain signal into envelope
             const float sc_gain         = self->fScGain;
@@ -1153,27 +1163,24 @@ namespace lsp
             {
                 channel_t *c        = &vChannels[i];
 
+                // Cleanup output buffer
+                dsp::fill_zero(c->vDataIn, samples);
+                dsp::fill_zero(c->vDataOut, samples);
+
                 // Apply latency compensation
                 c->sDryDelay.process(c->vTmpIn, c->vInPtr, samples);
 
-                // c->vData contains sidechain signal with applied gain
-                // c->vTmpIn contains input signal without applied input gain
-                if (bActive)
-                {
-                    // Process wet signal
-                    if (nMode == MODE_IIR)
-                        c->sCrossover.process(c->vTmpIn, samples);
-                    else
-                        c->sFFTCrossover.process(c->vTmpIn, samples);
-                }
-                else if ((bOutIn) && (fInGain >= GAIN_AMP_M_INF_DB))
-                    dsp::fmadd_k3(c->vData, c->vTmpIn, fInGain, samples);
+                // Process wet signal
+                if (nMode == MODE_IIR)
+                    c->sCrossover.process(c->vTmpIn, samples);
+                else
+                    c->sFFTCrossover.process(c->vTmpIn, samples);
 
                 // Store buffers for analysis
                 float **dst     = &analyze[i*MTR_TOTAL];
-                dst[MTR_IN]     = c->vTmpIn;
+                dst[MTR_IN]     = c->vDataIn;
                 dst[MTR_SC]     = c->vSidechain;
-                dst[MTR_OUT]    = c->vData;
+                dst[MTR_OUT]    = c->vDataOut;
 
                 for (size_t j=0; j<MTR_TOTAL; ++j)
                 {
@@ -1182,8 +1189,12 @@ namespace lsp
                     c->vMeters[j]   = lsp_max(v, (j == MTR_IN) ? pk * fInGain : pk);
                 }
 
+                // Add sidechain to output
+                if (bOutSc)
+                    dsp::add2(c->vDataOut, c->vSidechain, samples);
+
                 // Now c->vData contains processed signal, apply bypass
-                c->sBypass.process(c->vOutPtr, c->vTmpIn, c->vData, samples);
+                c->sBypass.process(c->vOutPtr, c->vTmpIn, c->vDataOut, samples);
             }
 
             // Perform FFT analysis

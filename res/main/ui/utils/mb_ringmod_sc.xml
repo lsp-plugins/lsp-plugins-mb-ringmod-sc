@@ -1,6 +1,7 @@
 <plugin resizable="true">
 	<ui:set id="has_solo" value="
 		:bs_1 or (:bs_2 and :se_1) or (:bs_3 and :se_2) or (:bs_4 and :se_3) or (:bs_5 and :se_4) or (:bs_6 and :se_5) or (:bs_7 and :se_6) or (:bs_8 and :se_7)"/>
+	<ui:eval id="is_stereo" value="ex :out_l" />
 
 	<grid rows="3" cols="6" vspacing="4" hspacing="4">
 		<!-- Row 1: Graph -->
@@ -140,8 +141,10 @@
 			<vbox vexpand="true" bg.color="bg_schema">
 				<label text="labels.chan.in" pad.b="3" pad.t="3"/>
 				<ledmeter vexpand="true" angle="1">
-					<ledchannel id="ilm_l" min="-72 db" max="12 db" log="true" type="rms_peak" peak.visibility="true" value.color="left_in"/>
-					<ledchannel id="ilm_r" min="-72 db" max="12 db" log="true" type="rms_peak" peak.visibility="true" value.color="right_in"/>
+					<ui:if test=":is_stereo">
+						<ledchannel id="ilm_l" min="-72 db" max="12 db" log="true" type="rms_peak" peak.visibility="true" value.color="left_in"/>
+						<ledchannel id="ilm_r" min="-72 db" max="12 db" log="true" type="rms_peak" peak.visibility="true" value.color="right_in"/>
+					</ui:if>
 				</ledmeter>
 			</vbox>
 		</cell>
@@ -150,8 +153,10 @@
 			<vbox vexpand="true" bg.color="bg_schema">
 				<label text="labels.sc.SC" pad.b="3" pad.t="3"/>
 				<ledmeter vexpand="true" angle="1">
-					<ledchannel id="slm_l" min="-72 db" max="12 db" log="true" type="rms_peak" peak.visibility="true" value.color="sidechain_1"/>
-					<ledchannel id="slm_r" min="-72 db" max="12 db" log="true" type="rms_peak" peak.visibility="true" value.color="sidechain_2"/>
+					<ui:if test=":is_stereo">
+						<ledchannel id="slm_l" min="-72 db" max="12 db" log="true" type="rms_peak" peak.visibility="true" value.color="sidechain_1"/>
+						<ledchannel id="slm_r" min="-72 db" max="12 db" log="true" type="rms_peak" peak.visibility="true" value.color="sidechain_2"/>
+					</ui:if>
 				</ledmeter>
 			</vbox>
 		</cell>
@@ -160,8 +165,10 @@
 			<vbox vexpand="true" bg.color="bg_schema">
 				<label text="labels.chan.out" pad.b="3" pad.t="3"/>
 				<ledmeter vexpand="true" angle="1">
-					<ledchannel id="olm_l" min="-72 db" max="12 db" log="true" type="rms_peak" peak.visibility="true" value.color="left"/>
-					<ledchannel id="olm_r" min="-72 db" max="12 db" log="true" type="rms_peak" peak.visibility="true" value.color="right"/>
+					<ui:if test=":is_stereo">
+						<ledchannel id="olm_l" min="-72 db" max="12 db" log="true" type="rms_peak" peak.visibility="true" value.color="left"/>
+						<ledchannel id="olm_r" min="-72 db" max="12 db" log="true" type="rms_peak" peak.visibility="true" value.color="right"/>
+					</ui:if>
 				</ledmeter>
 			</vbox>
 		</cell>
@@ -254,7 +261,7 @@
 			<combo id="slope" />
 			<label text="labels.type" />
 			<combo id="type" />
-			<ui:if test="ex :out_r">
+			<ui:if test=":is_stereo">
 				<label text="labels.source" />
 				<combo id="source" />
 			</ui:if>
