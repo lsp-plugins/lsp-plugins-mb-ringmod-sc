@@ -1442,26 +1442,182 @@ namespace lsp
         {
             plug::Module::dump(v);
 
-            // TODO
             v->write("nChannels", nChannels);
             v->begin_array("vChannels", vChannels, nChannels);
             for (size_t i=0; i<nChannels; ++i)
             {
-                channel_t *c            = &vChannels[i];
+                const channel_t * const c   = &vChannels[i];
 
                 v->begin_object(c, sizeof(channel_t));
                 {
+                    v->write_object("sBypass", &c->sBypass);
+                    v->write_object("sInDelay", &c->sInDelay);
+                    v->write_object("sScDelay", &c->sScDelay);
+                    v->write_object("sDryDelay", &c->sDryDelay);
+                    v->write_object("sCrossover", &c->sCrossover);
+                    v->write_object("sScCrossover", &c->sScCrossover);
+                    v->write_object("sFFTCrossover", &c->sFFTCrossover);
+                    v->write_object("sFFTScCrossover", &c->sFFTScCrossover);
+
+                    v->begin_array("vBands", c->vBands, meta::mb_ringmod_sc::BANDS_MAX);
+                    for (size_t j=0; j<meta::mb_ringmod_sc::BANDS_MAX; ++j)
+                    {
+                        const ch_band_t *cb     = &c->vBands[j];
+
+                        v->begin_object(cb, sizeof(ch_band_t));
+                        {
+                            v->write_object("sEnvDelay", &cb->sEnvDelay);
+
+                            v->write("vEnvelope", cb->vEnvelope);
+                            v->write("nHold", cb->nHold);
+                            v->write("fPeak", cb->fPeak);
+                            v->write("fReduction", cb->fReduction);
+                            v->write("pReduction", cb->pReduction);
+                        }
+                        v->end_object();
+                    }
+                    v->end_array();
+
+                    v->write("vIn", c->vIn);
+                    v->write("vSc", c->vSc);
+                    v->write("vLink", c->vLink);
+                    v->write("vOut", c->vOut);
+
+                    v->write("vInPtr", c->vInPtr);
+                    v->write("vScPtr", c->vScPtr);
+                    v->write("vLinkPtr", c->vLinkPtr);
+                    v->write("vOutPtr", c->vOutPtr);
+
+                    v->write("vTmpIn", c->vTmpIn);
+                    v->write("vTmpLink", c->vTmpLink);
+                    v->write("vTmpSc", c->vTmpSc);
+
+                    v->write("vDataIn", c->vDataIn);
+                    v->write("vSidechain", c->vSidechain);
+                    v->write("vDataOut", c->vDataOut);
+                    v->write("vGain", c->vGain);
+                    v->write("vFftIn", c->vFftIn);
+                    v->write("vFftOut", c->vFftOut);
+
+                    v->writev("vMeters", c->vMeters, MTR_TOTAL);
+                    v->writev("bFft", c->bFft, MTR_TOTAL);
+
                     v->write("pIn", c->pIn);
                     v->write("pOut", c->pOut);
                     v->write("pSc", c->pSc);
+                    v->write("pShmIn", c->pShmIn);
+                    v->writev("pFft", c->pFft, MTR_TOTAL);
+                    v->writev("pMeters", c->pMeters, MTR_TOTAL);
                 }
                 v->end_object();
             }
             v->end_array();
 
+            v->write_object("sAnalyzer", &sAnalyzer);
+            v->write_object("sCounter", &sCounter);
+
+            v->begin_array("vSplits", vSplits, meta::mb_ringmod_sc::BANDS_MAX - 1);
+            for (size_t i=0; i<meta::mb_ringmod_sc::BANDS_MAX - 1; ++i)
+            {
+                const split_t * const sp = &vSplits[i];
+
+                v->write("pEnabled", sp->pEnabled);
+                v->write("pFreq", sp->pFreq);
+            }
+            v->end_array();
+
+            v->begin_array("vBands", vBands, meta::mb_ringmod_sc::BANDS_MAX);
+            for (size_t i=0; i<meta::mb_ringmod_sc::BANDS_MAX; ++i)
+            {
+                const band_t * const b  = &vBands[i];
+
+                v->write("vTr", b->vTr);
+                v->write("fFreqStart", b->fFreqStart);
+                v->write("fFreqEnd", b->fFreqEnd);
+                v->write("fTauRelease", b->fTauRelease);
+                v->write("fAmount", b->fAmount);
+                v->write("fGain", b->fGain);
+                v->write("nHold", b->nHold);
+                v->write("nLatency", b->nLatency);
+                v->write("nDuck", b->nDuck);
+                v->write("fStereoLink", b->fStereoLink);
+                v->write("bActive", b->bActive);
+                v->write("bOn", b->bOn);
+                v->write("bMute", b->bMute);
+
+                v->write("pSolo", b->pSolo);
+                v->write("pMute", b->pMute);
+                v->write("pOn", b->pOn);
+                v->write("pLookahead", b->pLookahead);
+                v->write("pHold", b->pHold);
+                v->write("pRelease", b->pRelease);
+                v->write("pDuck", b->pDuck);
+                v->write("pAmount", b->pAmount);
+                v->write("pGain", b->pGain);
+                v->write("pFreqEnd", b->pFreqEnd);
+                v->write("pStereoLink", b->pStereoLink);
+            }
+            v->end_array();
+
             v->write("vBuffer", vBuffer);
+            v->write("vEmptyBuffer", vEmptyBuffer);
+            v->write("vFreqs", vFreqs);
+            v->write("vIndexes", vIndexes);
+
+            v->begin_object("sPremix", &sPremix, sizeof(premix_t));
+            {
+                v->write("fInToSc", sPremix.fInToSc);
+                v->write("fInToLink", sPremix.fInToLink);
+                v->write("fLinkToIn", sPremix.fLinkToIn);
+                v->write("fLinkToSc", sPremix.fLinkToSc);
+                v->write("fScToIn", sPremix.fScToIn);
+                v->write("fScToLink", sPremix.fScToLink);
+
+                v->write("pInToSc", sPremix.pInToSc);
+                v->write("pInToLink", sPremix.pInToLink);
+                v->write("pLinkToIn", sPremix.pLinkToIn);
+                v->write("pLinkToSc", sPremix.pLinkToSc);
+                v->write("pScToIn", sPremix.pScToIn);
+                v->write("pScToLink", sPremix.pScToLink);
+            }
+
+            v->write("nType", nType);
+            v->write("nSource", nSource);
+            v->write("nMode", nMode);
+            v->write("nLatency", nLatency);
+            v->write("fInGain", fInGain);
+            v->write("fScGain", fScGain);
+            v->write("fDryGain", fDryGain);
+            v->write("fWetGain", fWetGain);
+            v->write("fScOutGain", fScOutGain);
+
+            v->write("bUpdFilters", bUpdFilters);
+            v->write("bSyncFilters", bSyncFilters);
+            v->write("bActive", bActive);
+            v->write("bInvert", bInvert);
+            v->write("bOutIn", bOutIn);
+            v->write("bOutSc", bOutSc);
 
             v->write("pBypass", pBypass);
+            v->write("pGainIn", pGainIn);
+            v->write("pGainSc", pGainSc);
+            v->write("pGainOut", pGainOut);
+            v->write("pOutIn", pOutIn);
+            v->write("pOutSc", pOutSc);
+            v->write("pActive", pActive);
+            v->write("pInvert", pInvert);
+            v->write("pType", pType);
+            v->write("pMode", pMode);
+            v->write("pSlope", pSlope);
+            v->write("pDry", pDry);
+            v->write("pWet", pWet);
+            v->write("pDryWet", pDryWet);
+            v->write("pZoom", pZoom);
+            v->write("pReactivity", pReactivity);
+            v->write("pShift", pShift);
+            v->write("pFilterMesh", pFilterMesh);
+            v->write("pMeterMesh", pMeterMesh);
+            v->write("pSource", pSource);
 
             v->write("pData", pData);
         }
