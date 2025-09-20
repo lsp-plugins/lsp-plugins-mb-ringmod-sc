@@ -1,0 +1,13 @@
+{
+	"mb_ringmod": {
+		"notes": {
+			"full": "{@id}\n{@frequency} Гц\n{@note}{@octave}{@cents}",
+			"unknown": "{@id}\n{@frequency} Гц"
+		},
+		"splits": {
+			"index": {
+				"split_id": "Раздел #{@id}"
+			}
+		}
+	}
+}
