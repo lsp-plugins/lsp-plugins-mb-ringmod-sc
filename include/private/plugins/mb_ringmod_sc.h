@@ -133,9 +133,9 @@ namespace lsp
 
                 typedef struct ch_band_t
                 {
-                    dspu::RingBuffer    sScDelay;               // Delay for sidechain
+                    dspu::RingBuffer    sEnvDelay;              // Delay for envelope
 
-                    float              *vScData;                // Band-filtered sidechain data
+                    float              *vEnvelope;              // Band-filtered sidechain envelope
 
                     uint32_t            nHold;                  // Hold time
                     float               fPeak;                  // Current peak value

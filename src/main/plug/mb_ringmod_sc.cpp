@@ -198,7 +198,7 @@ namespace lsp
                                           szof_buf + // vDataOut
                                           szof_fft * 3 + // vGain, vFftIn, vFftOut
                                           meta::mb_ringmod_sc::BANDS_MAX * ( // ch_band_t::
-                                              szof_buf // vScData
+                                              szof_buf // vEnvelope
                                           )
                                       );
 
@@ -253,12 +253,12 @@ namespace lsp
                 {
                     ch_band_t *cb   = &c->vBands[j];
 
-                    cb->sScDelay.construct();
+                    cb->sEnvDelay.construct();
 
                     cb->nHold               = 0;
                     cb->fPeak               = GAIN_AMP_M_INF_DB;
 
-                    cb->vScData             = advance_ptr_bytes<float>(ptr, szof_buf);
+                    cb->vEnvelope           = advance_ptr_bytes<float>(ptr, szof_buf);
 
                     cb->pReduction          = NULL;
                 }
@@ -440,7 +440,7 @@ namespace lsp
                     {
                         ch_band_t *cb   = &c->vBands[j];
 
-                        cb->sScDelay.destroy();
+                        cb->sEnvDelay.destroy();
                     }
                 }
                 vChannels   = NULL;
@@ -506,7 +506,7 @@ namespace lsp
                 {
                     ch_band_t *cb   = &c->vBands[j];
 
-                    cb->sScDelay.init(sc_max_delay);
+                    cb->sEnvDelay.init(sc_max_delay);
 
                     c->sCrossover.set_handler(j, process_band, this, c);
                     c->sScCrossover.set_handler(j, process_sc_band, this, c);
@@ -614,6 +614,7 @@ namespace lsp
             nType                   = pType->value();
             nSource                 = (pSource != NULL) ? pSource->value() : SC_SRC_LEFT_RIGHT;
             nMode                   = pMode->value();
+            bActive                 = pActive->value() >= 0.5f;
 
             if (nMode != old_mode)
             {
@@ -777,7 +778,7 @@ namespace lsp
                 b->fAmount          = dspu::db_to_gain(b->pAmount->value());
                 b->bOn              = b->pOn->value() >= 0.5f;
 
-                if ((!has_solo) && (b->bOn))
+                if ((!has_solo) && (b->bActive))
                     has_solo            = b->pSolo->value() >= 0.5f;
 
                 nLatency            = lsp_max(nLatency, b->nLatency);
@@ -1016,8 +1017,8 @@ namespace lsp
                 if (slink <= 0.0f)
                     continue;
 
-                float *lbuf         = clb->vScData;
-                float *rbuf         = crb->vScData;
+                float *lbuf         = clb->vEnvelope;
+                float *rbuf         = crb->vEnvelope;
 
                 // For both channels: find the minimum one and try to raise to maximum one
                 // proportionally to the stereo link setup
@@ -1040,17 +1041,17 @@ namespace lsp
             ch_band_t * const cb        = &c->vBands[band];
             band_t * const b            = &self->vBands[band];
 
-            const float * const sc      = &cb->vScData[sample];
+            const float * const env     = &cb->vEnvelope[sample];
             float * tmp                 = NULL;
 
-            if (b->bOn)
+            if ((b->bOn) && (self->bActive))
             {
                 tmp                         = self->vBuffer;
                 // Compute the gain reduction
                 // cb->vScData contains sidechain envelope signal
                 // vBuffer will contain gain reduction
                 for (size_t j=0; j<samples; ++j)
-                    tmp[j]                      = lsp_max(0.0f, GAIN_AMP_0_DB - sc[j] * b->fAmount) * b->fGain;
+                    tmp[j]                      = lsp_max(0.0f, GAIN_AMP_0_DB - env[j] * b->fAmount) * b->fGain;
                 cb->fReduction              = lsp_min(cb->fReduction, dsp::abs_min(tmp, samples));
             }
 
@@ -1103,7 +1104,7 @@ namespace lsp
             const float sc_gain         = self->fScGain;
             uint32_t hold               = cb->nHold;
             float peak                  = cb->fPeak;
-            float * const dst           = &cb->vScData[sample];
+            float * const dst           = &cb->vEnvelope[sample];
 
             for (size_t i=0; i<samples; ++i)
             {
@@ -1135,22 +1136,22 @@ namespace lsp
             cb->fPeak           = peak;
 
             // Now push the buffer contents to the ring buffer
-            cb->sScDelay.append(dst, samples);
-            if (!b->bOn)
+            cb->sEnvDelay.append(dst, samples);
+            if ((!b->bOn) || (!self->bActive))
                 return;
 
             // Apply latency compensation, lookahead and ducking
             if (self->nLatency > 0)
-                cb->sScDelay.get(dst, samples + self->nLatency, samples);
+                cb->sEnvDelay.get(dst, samples + self->nLatency, samples);
 
             if (b->nLatency < self->nLatency)
             {
-                cb->sScDelay.get(self->vBuffer, samples + b->nLatency, samples);
+                cb->sEnvDelay.get(self->vBuffer, samples + b->nLatency, samples);
                 dsp::pmax2(dst, self->vBuffer, samples);
             }
             if (b->nDuck > self->nLatency)
             {
-                cb->sScDelay.get(self->vBuffer, samples + b->nDuck, samples);
+                cb->sEnvDelay.get(self->vBuffer, samples + b->nDuck, samples);
                 dsp::pmax2(dst, self->vBuffer, samples);
             }
         }
@@ -1176,6 +1177,15 @@ namespace lsp
                 else
                     c->sFFTCrossover.process(c->vTmpIn, samples);
 
+                // Add sidechain to output
+                if (bOutSc)
+                {
+                    c->sScDelay.process(c->vSidechain, c->vSidechain, samples);
+                    dsp::add2(c->vDataOut, c->vSidechain, samples);
+                }
+                else
+                    c->sScDelay.append(c->vSidechain, samples);
+
                 // Store buffers for analysis
                 float **dst     = &analyze[i*MTR_TOTAL];
                 dst[MTR_IN]     = c->vDataIn;
@@ -1189,11 +1199,7 @@ namespace lsp
                     c->vMeters[j]   = lsp_max(v, (j == MTR_IN) ? pk * fInGain : pk);
                 }
 
-                // Add sidechain to output
-                if (bOutSc)
-                    dsp::add2(c->vDataOut, c->vSidechain, samples);
-
-                // Now c->vData contains processed signal, apply bypass
+                // Now c->vDataOut contains processed signal, apply bypass
                 c->sBypass.process(c->vOutPtr, c->vTmpIn, c->vDataOut, samples);
             }
 

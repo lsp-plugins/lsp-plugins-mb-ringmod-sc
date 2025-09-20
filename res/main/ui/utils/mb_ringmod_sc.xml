@@ -321,7 +321,7 @@
 						</ui:with>
 					</ui:if>
 
-					<ui:if test=":i ine 1">
+					<ui:if test=":i igt 1">
 						<ui:with bright="${bright}" bg.bright="${bg_bright}">
 							<cell cols="2" bg.color="bg_schema">
 								<button
@@ -340,7 +340,7 @@
 									pad.h="6"
 									pad.v="4"/>
 							</cell>
-							<knob id="sf_${i}" size="16" ssize="3" pad.v="4" scolor="${scolor}" scolor.hue="${hue}"/>
+							<knob id="sf_${:i-1}" size="16" ssize="3" pad.v="4" scolor="${scolor}" scolor.hue="${hue}"/>
 						</ui:with>
 					</ui:if>
 
