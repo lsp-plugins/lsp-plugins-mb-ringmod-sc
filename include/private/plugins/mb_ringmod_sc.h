@@ -29,6 +29,7 @@
 #include <lsp-plug.in/dsp-units/util/FFTCrossover.h>
 #include <lsp-plug.in/dsp-units/util/RingBuffer.h>
 #include <lsp-plug.in/dsp-units/ctl/Bypass.h>
+#include <lsp-plug.in/plug-fw/core/IDBuffer.h>
 #include <lsp-plug.in/plug-fw/plug.h>
 #include <private/meta/mb_ringmod_sc.h>
 
@@ -210,12 +211,15 @@ namespace lsp
                 float               fDryGain;               // Dry gain
                 float               fWetGain;               // Wet gain
                 float               fScOutGain;             // Output gain for sidechain
+                float               fZoom;                  // Zoom
                 bool                bUpdFilters;            // Need to update filter state with UI
                 bool                bSyncFilters;           // Need to synchronize filter state with UI
                 bool                bActive;                // Apply sidechain processing
                 bool                bInvert;                // Invert sidechain processing
                 bool                bOutIn;                 // Output input signal
                 bool                bOutSc;                 // Output sidechain signal
+
+                core::IDBuffer     *pIDisplay;              // Inline display buffer
 
                 plug::IPort        *pBypass;                // Bypass
                 plug::IPort        *pGainIn;                // Input gain
@@ -276,6 +280,7 @@ namespace lsp
                 virtual void        update_settings() override;
                 virtual void        ui_activated() override;
                 virtual void        process(size_t samples) override;
+                virtual bool        inline_display(plug::ICanvas *cv, size_t width, size_t height) override;
                 virtual void        dump(dspu::IStateDumper *v) const override;
         };
 

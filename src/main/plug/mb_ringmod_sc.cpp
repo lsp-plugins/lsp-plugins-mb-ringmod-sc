@@ -29,6 +29,7 @@
 #include <lsp-plug.in/plug-fw/core/AudioBuffer.h>
 #include <lsp-plug.in/plug-fw/meta/func.h>
 #include <lsp-plug.in/shared/debug.h>
+#include <lsp-plug.in/shared/id_colors.h>
 
 #include <private/plugins/mb_ringmod_sc.h>
 
@@ -96,6 +97,7 @@ namespace lsp
             fDryGain            = GAIN_AMP_M_INF_DB;
             fWetGain            = GAIN_AMP_0_DB;
             fScOutGain          = GAIN_AMP_0_DB;
+            fZoom               = GAIN_AMP_0_DB;
 
             bUpdFilters         = true;
             bSyncFilters        = false;
@@ -103,6 +105,8 @@ namespace lsp
             bInvert             = false;
             bOutIn              = true;
             bOutSc              = true;
+
+            pIDisplay           = NULL;
 
             pBypass             = NULL;
             pGainIn             = NULL;
@@ -459,6 +463,12 @@ namespace lsp
                 free_aligned(pData);
                 pData       = NULL;
             }
+
+            if (pIDisplay != NULL)
+            {
+                pIDisplay->destroy();
+                pIDisplay   = NULL;
+            }
         }
 
         size_t mb_ringmod_sc::select_fft_rank(size_t sample_rate)
@@ -636,6 +646,7 @@ namespace lsp
             nMode                   = pMode->value();
             bActive                 = pActive->value() >= 0.5f;
             bInvert                 = pInvert->value() >= 0.5f;
+            fZoom                   = pZoom->value();
 
             if (nMode != old_mode)
             {
@@ -1317,6 +1328,7 @@ namespace lsp
         {
             if (!sCounter.fired())
                 return;
+            sCounter.commit();
 
             // Form gain reduction chart for each buffer
             for (size_t i=0; i<nChannels; ++i)
@@ -1344,6 +1356,10 @@ namespace lsp
                 if (emitted <= 0)
                     dsp::fill_zero(c->vGain, meta::mb_ringmod_sc::FFT_MESH_POINTS);
             }
+
+            // Request for redraw
+            if (pWrapper != NULL)
+                pWrapper->query_display_draw();
         }
 
         void mb_ringmod_sc::output_meshes()
@@ -1436,6 +1452,102 @@ namespace lsp
                 // Output mesh data
                 mesh->data(index, meta::mb_ringmod_sc::FFT_MESH_POINTS + 4);
             }
+        }
+
+        bool mb_ringmod_sc::inline_display(plug::ICanvas *cv, size_t width, size_t height)
+        {
+            // Check proportions
+            if (height > (M_RGOLD_RATIO * width))
+                height  = M_RGOLD_RATIO * width;
+
+            // Init canvas
+            if (!cv->init(width, height))
+                return false;
+            width   = cv->width();
+            height  = cv->height();
+
+            // Clear background
+            const bool bypassing = vChannels[0].sBypass.bypassing();
+            cv->set_color_rgb((bypassing) ? CV_DISABLED : CV_BACKGROUND);
+            cv->paint();
+
+            // Draw axis
+            cv->set_line_width(1.0);
+
+            // "-72 db / (:zoom ** 3)" max="24 db * :zoom"
+            // "-84 db / (:zoom ** 3)" max="12 db * (:zoom ** (3.0/7.0))"
+
+            const float miny  = logf(GAIN_AMP_M_84_DB / dsp::ipowf(fZoom, 3));
+            const float maxy  = logf(GAIN_AMP_P_12_DB * powf(fZoom, 3.0f/7.0f));
+
+            const float zx    = 1.0f/SPEC_FREQ_MIN;
+            const float zy    = dsp::ipowf(fZoom, 3)/GAIN_AMP_M_84_DB;
+            const float dx    = width/(logf(SPEC_FREQ_MAX/SPEC_FREQ_MIN));
+            const float dy    = height/(miny - maxy);
+
+            // Draw vertical lines
+            cv->set_color_rgb(CV_YELLOW, 0.5f);
+            for (float i=100.0f; i<SPEC_FREQ_MAX; i *= 10.0f)
+            {
+                const float ax = dx*(logf(i*zx));
+                cv->line(ax, 0, ax, height);
+            }
+
+            // Draw horizontal lines
+            cv->set_color_rgb(CV_WHITE, 0.5f);
+            for (float i=GAIN_AMP_M_72_DB; i<GAIN_AMP_P_12_DB; i *= GAIN_AMP_P_12_DB)
+            {
+                const float ay = height + dy*(logf(i*zy));
+                cv->line(0, ay, width, ay);
+            }
+
+            // Allocate buffer: f, x, y, tr
+            pIDisplay           = core::IDBuffer::reuse(pIDisplay, 4, width+2);
+            core::IDBuffer *b   = pIDisplay;
+            if (b == NULL)
+                return false;
+
+            // Initialize mesh
+            b->v[0][0]          = SPEC_FREQ_MIN*0.5f;
+            b->v[0][width+1]    = SPEC_FREQ_MAX*2.0f;
+            b->v[3][0]          = 1.0f;
+            b->v[3][width+1]    = 1.0f;
+
+            static const uint32_t c_colors[] =
+            {
+                CV_MIDDLE_CHANNEL,
+                CV_LEFT_CHANNEL, CV_RIGHT_CHANNEL
+            };
+
+            const uint32_t *vc  = &c_colors[nChannels - 1];
+
+            bool aa = cv->set_anti_aliasing(true);
+            lsp_finally { cv->set_anti_aliasing(aa); };
+            cv->set_line_width(2);
+
+            for (size_t i=0; i<nChannels; ++i)
+            {
+                channel_t *c    = &vChannels[i];
+
+                for (size_t j=0; j<width; ++j)
+                {
+                    size_t k        = (j*meta::mb_ringmod_sc::FFT_MESH_POINTS)/width;
+                    b->v[0][j+1]    = vFreqs[k];
+                    b->v[3][j+1]    = c->vGain[k];
+                }
+
+                dsp::fill(b->v[1], 0.0f, width+2);
+                dsp::fill(b->v[2], height, width+2);
+                dsp::axis_apply_log1(b->v[1], b->v[0], zx, dx, width+2);
+                dsp::axis_apply_log1(b->v[2], b->v[3], zy, dy, width+2);
+
+                // Draw mesh
+                uint32_t color = (bypassing || !(active())) ? CV_SILVER : vc[i];
+                Color stroke(color), fill(color, 0.5f);
+                cv->draw_poly(b->v[1], b->v[2], width+2, stroke, fill);
+            }
+
+            return true;
         }
 
         void mb_ringmod_sc::dump(dspu::IStateDumper *v) const
@@ -1597,6 +1709,8 @@ namespace lsp
             v->write("bInvert", bInvert);
             v->write("bOutIn", bOutIn);
             v->write("bOutSc", bOutSc);
+
+            v->write("pIDisplay", pIDisplay);
 
             v->write("pBypass", pBypass);
             v->write("pGainIn", pGainIn);
