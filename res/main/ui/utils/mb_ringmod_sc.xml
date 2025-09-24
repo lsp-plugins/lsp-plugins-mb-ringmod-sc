@@ -1,364 +1,381 @@
 <plugin resizable="true">
 	<ui:set id="has_solo" value="
 		:bs_1 or (:bs_2 and :se_1) or (:bs_3 and :se_2) or (:bs_4 and :se_3) or (:bs_5 and :se_4) or (:bs_6 and :se_5) or (:bs_7 and :se_6) or (:bs_8 and :se_7)"/>
-	<ui:eval id="is_stereo" value="ex :out_l" />
+	<ui:eval id="is_stereo" value="ex :out_l"/>
+	<vbox spacing="4">
+		<grid rows="2" cols="6" vspacing="4" hspacing="4">
+			<!-- Row 1: Graph -->
+			<group ui:inject="GraphGroup" ipadding="0" expand="true" fill="true" text="labels.graphs.spectrum">
+				<graph width.min="640" height.min="350" expand="true" fill="true">
+					<origin hpos="-1" vpos="-1" visible="false"/>
 
-	<grid rows="3" cols="6" vspacing="4" hspacing="4">
-		<!-- Row 1: Graph -->
-		<group ui:inject="GraphGroup" ipadding="0" expand="true" fill="true" text="labels.graphs.spectrum">
-			<graph width.min="640" height.min="320" expand="true" fill="true">
-				<origin hpos="-1" vpos="-1" visible="false"/>
+					<!-- Additional grid -->
+					<ui:with color="graph_alt_1">
+						<ui:for id="f" first="20" last="90" step="10">
+							<marker v="${:f}"/>
+							<marker v="${:f*10}"/>
+							<marker v="${:f*100}"/>
+						</ui:for>
+						<marker v="20000"/>
+						<ui:with ox="1" oy="0">
+							<marker v="+12 db"/>
+							<marker v="-12 db"/>
+							<marker v="-36 db"/>
+							<marker v="-60 db"/>
+							<marker v="-72 db"/>
 
-				<!-- Additional grid -->
-				<ui:with color="graph_alt_1">
-					<ui:for id="f" first="20" last="90" step="10">
-						<marker v="${:f}"/>
-						<marker v="${:f*10}"/>
-						<marker v="${:f*100}"/>
+							<ui:for id="g" first="-42" last="18" step="12">
+								<marker v="${g} db" visibility=":zoom le -9 db"/>
+							</ui:for>
+							<ui:for id="g" first="-33" last="9" step="6">
+								<marker v="${g} db" visibility=":zoom le -15 db"/>
+							</ui:for>
+						</ui:with>
+					</ui:with>
+
+					<!-- Secondary grid -->
+					<ui:with color="graph_sec">
+						<marker v="100"/>
+						<marker v="1000"/>
+						<marker v="10000"/>
+						<marker value="0 db" ox="1" oy="0"/>
+						<marker value="-24 db" ox="1" oy="0"/>
+						<marker value="-48 db" ox="1" oy="0"/>
+					</ui:with>
+
+					<!-- Band markers -->
+					<ui:with
+						width="2"
+						fill="0.5"
+						color.a="0.2"
+						hcolor.a="0.1"
+						lcolor.a="0.8"
+						hlcolor.a="0.6"
+						rcolor.a="0.8"
+						hrcolor.a="0.6"
+						color="graph_marker_cycle"
+						hcolor="graph_marker_cycle"
+						lcolor="graph_marker_cycle"
+						hlcolor="graph_marker_cycle"
+						rcolor="graph_marker_cycle"
+						hrcolor="graph_marker_cycle">
+
+						<marker v="10" color.hue="0" hcolor.hue="0" rborder="16" rcolor.hue="0" hrborder="16" hrcolor.hue="0"/>
+						<marker id="bfe_1" color.hue="0" hcolor.hue="0" lborder="16" lcolor.hue="0" hlborder="16" hlcolor.hue="0"/>
+						<ui:for id="i" first="1" count="7">
+							<marker id="sf_${i}" ui:id="split_marker_${i}" visibility=":se_${i}" editable="true" color.hue="${:i * 0.125}" hcolor.hue="${:i * 0.125}" rborder="16" rcolor.hue="${:i * 0.125}" hrborder="16" hrcolor.hue="${:i * 0.125}" pointer="hsize"/>
+							<marker id="bfe_${:i+1}" visibility=":se_${i}" color.hue="${:i * 0.125}" hcolor.hue="${:i * 0.125}" lborder="16" lcolor.hue="${:i * 0.125}" hlborder="16" hlcolor.hue="${:i * 0.125}"/>
+						</ui:for>
+					</ui:with>
+
+					<!-- Meshes -->
+					<mesh id="bfc" xi="0" yi="1" width="2" fill="true" smooth="true" color="graph_mesh_cycle" color.hue="0" fcolor="graph_mesh_cycle" fcolor.hue="0" fcolor.a="0.9" visibility=":flt"/>
+					<ui:for id="i" first="1" count="7">
+						<mesh id="bfc" xi="0" yi="${:i+1}" width="2" fill="true" smooth="true" color="graph_mesh_cycle" color.hue="${:i * 0.125}" fcolor="graph_mesh_cycle" fcolor.hue="${:i * 0.125}" fcolor.a="0.9" color.a="0.6" visibility=":flt and :se_${:i}"/>
 					</ui:for>
-					<marker v="20000"/>
-					<ui:with ox="1" oy="0">
-						<marker v="+12 db"/>
-						<marker v="-12 db"/>
-						<marker v="-36 db"/>
-						<marker v="-60 db"/>
-						<marker v="-72 db"/>
 
+					<ui:if test=":is_stereo">
+						<mesh id="meters" xi="0" yi="2" oy=":_ui_zoomable_spectrum_graph ? 1 : 3" width="0" color="left_in" color.a="0.8" fcolor.a="0.8" fill="true" fcolor="left_in" visibility=":ifft_l"/>
+						<mesh id="meters" xi="0" yi="6" oy=":_ui_zoomable_spectrum_graph ? 1 : 3" width="0" color="right_in" color.a="0.8" fcolor.a="0.8" fill="true" fcolor="right_in" visibility=":ifft_r"/>
+						<mesh id="meters" xi="0" yi="3" oy=":_ui_zoomable_spectrum_graph ? 1 : 3" width="0" color="sidechain_1" color.a="0.8" fcolor.a="0.8" fill="true" fcolor="sidechain_1" visibility=":sfft_l"/>
+						<mesh id="meters" xi="0" yi="7" oy=":_ui_zoomable_spectrum_graph ? 1 : 3" width="0" color="sidechain_2" color.a="0.8" fcolor.a="0.8" fill="true" fcolor="sidechain_2" visibility=":sfft_r"/>
+						<mesh id="meters" xi="0" yi="4" oy=":_ui_zoomable_spectrum_graph ? 1 : 3" width="2" color="left" visibility=":offt_l"/>
+						<mesh id="meters" xi="0" yi="8" oy=":_ui_zoomable_spectrum_graph ? 1 : 3" width="2" color="right" visibility=":offt_r"/>
+						<mesh id="meters" xi="0" yi="1" width="3" color="left" smooth="true"/>
+						<mesh id="meters" xi="0" yi="5" width="3" color="right" smooth="true"/>
+					</ui:if>
+					<ui:if test="!:is_stereo">
+						<mesh id="meters" xi="0" yi="2" oy=":_ui_zoomable_spectrum_graph ? 1 : 3" width="0" color="mono_in" color.a="0.8" fcolor.a="0.8" fill="true" fcolor="mono_in" visibility=":ifft"/>
+						<mesh id="meters" xi="0" yi="3" oy=":_ui_zoomable_spectrum_graph ? 1 : 3" width="0" color="sidechain_1" color.a="0.8" fcolor.a="0.8" fill="true" fcolor="sidechain_1" visibility=":sfft"/>
+						<mesh id="meters" xi="0" yi="4" oy=":_ui_zoomable_spectrum_graph ? 1 : 3" width="2" color="mono" visibility=":offt"/>
+						<mesh id="meters" xi="0" yi="1" width="3" color="left" smooth="true"/>
+					</ui:if>
+
+					<!-- Axis -->
+					<axis min="10" max="24000" angle="0.0" log="true" visibility="false"/>
+					<axis min="-84 db / (:zoom ** 3)" max="12 db * (:zoom ** (3.0/7.0))" color="graph_prim" angle="0.5" log="true"/>
+					<axis min="-1" max="1" visibility="false" angle="0.5"/>
+					<axis min="-84 db" max="12 db" color="graph_prim" angle="0.5" log="true"/>
+
+					<!-- Text -->
+					<ui:with ox="0" oy="2" y="0" halign="1" valign="1">
+						<text x="10" text="graph.units.hz"/>
+						<text x="20" text="20"/>
+						<text x="30" text="30"/>
+						<text x="50" text="50"/>
+						<text x="100" text="100"/>
+						<text x="200" text="200"/>
+						<text x="300" text="300"/>
+						<text x="500" text="500"/>
+						<text x="1000" text="graph.values.x_k" text:value="1"/>
+						<text x="2000" text="graph.values.x_k" text:value="2"/>
+						<text x="3000" text="graph.values.x_k" text:value="3"/>
+						<text x="5000" text="graph.values.x_k" text:value="5"/>
+						<text x="10000" text="graph.values.x_k" text:value="10"/>
+						<text x="20000" text="graph.values.x_k" text:value="20"/>
+					</ui:with>
+
+					<ui:with x="10" halign="1" valign="1">
+						<ui:for id="g" first="-72" last="48" step="12">
+							<text y="${g} db" text="${g}"/>
+						</ui:for>
+						<text y="0 db" ox="0" oy="2" text="graph.units.db" valign="-1"/>
 						<ui:for id="g" first="-42" last="18" step="12">
-							<marker v="${g} db" visibility=":zoom le -9 db"/>
+							<text y="${g} db" text="${g}" visibility=":zoom le -9 db"/>
 						</ui:for>
 						<ui:for id="g" first="-33" last="9" step="6">
-							<marker v="${g} db" visibility=":zoom le -15 db"/>
+							<text y="${g} db" text="${g}" visibility=":zoom le -15 db"/>
 						</ui:for>
 					</ui:with>
-				</ui:with>
 
-				<!-- Secondary grid -->
-				<ui:with color="graph_sec">
-					<marker v="100"/>
-					<marker v="1000"/>
-					<marker v="10000"/>
-					<marker value="0 db" ox="1" oy="0"/>
-					<marker value="-24 db" ox="1" oy="0"/>
-					<marker value="-48 db" ox="1" oy="0"/>
-				</ui:with>
-
-				<!-- Band markers -->
-				<ui:with
-					width="2"
-					fill="0.5"
-					color.a="0.2"
-					hcolor.a="0.1"
-					lcolor.a="0.8"
-					hlcolor.a="0.6"
-					rcolor.a="0.8"
-					hrcolor.a="0.6"
-					color="graph_marker_cycle"
-					hcolor="graph_marker_cycle"
-					lcolor="graph_marker_cycle"
-					hlcolor="graph_marker_cycle"
-					rcolor="graph_marker_cycle"
-					hrcolor="graph_marker_cycle">
-
-					<marker v="10" color.hue="0" hcolor.hue="0" rborder="16" rcolor.hue="0" hrborder="16" hrcolor.hue="0"/>
-					<marker id="bfe_1" color.hue="0" hcolor.hue="0" lborder="16" lcolor.hue="0" hlborder="16" hlcolor.hue="0"/>
 					<ui:for id="i" first="1" count="7">
-						<marker id="sf_${i}" ui:id="split_marker_${i}" visibility=":se_${i}" editable="true" color.hue="${:i * 0.125}" hcolor.hue="${:i * 0.125}" rborder="16" rcolor.hue="${:i * 0.125}" hrborder="16" hrcolor.hue="${:i * 0.125}" pointer="hsize"/>
-						<marker id="bfe_${:i+1}" visibility=":se_${i}" color.hue="${:i * 0.125}" hcolor.hue="${:i * 0.125}" lborder="16" lcolor.hue="${:i * 0.125}" hlborder="16" hlcolor.hue="${:i * 0.125}"/>
+						<ui:with ox="0" oy="2" y="1" valign="-1" color="graph_marker_cycle" visibility="false" pad.h="4" font.bold="true">
+							<text ui:id="split_note_${i}" x=":sf_${i}" halign="(:sf_${i} lt 500) ? 1 : -1" text.halign="(:sf_${i} lt 500) ? -1 : 1" color.hue="${:i * 0.125}"/>
+						</ui:with>
 					</ui:for>
-				</ui:with>
+				</graph>
+			</group>
 
-				<!-- Meshes -->
-				<mesh id="bfc" xi="0" yi="1" width="2" fill="true" smooth="true" color="graph_mesh_cycle" color.hue="0" fcolor="graph_mesh_cycle" fcolor.hue="0" fcolor.a="0.9" visibility=":flt"/>
-				<ui:for id="i" first="1" count="7">
-					<mesh id="bfc" xi="0" yi="${:i+1}" width="2" fill="true" smooth="true" color="graph_mesh_cycle" color.hue="${:i * 0.125}" fcolor="graph_mesh_cycle" fcolor.hue="${:i * 0.125}" fcolor.a="0.9" color.a="0.6" visibility=":flt and :se_${:i}"/>
-				</ui:for>
+			<!-- Row 1: zoom -->
+			<cell rows="2">
+				<vbox vexpand="true" bg.color="bg_schema">
+					<label font.name="lsp-icons" font.size="12" font.antialias="true" text="icons.main.zoom" color="text_icon" pad.b="4" pad.t="4"/>
+					<fader id="zoom" angle="1" vexpand="true" bg.inherit="true" flat="true"/>
+					<value id="zoom" width="40"/>
+				</vbox>
+			</cell>
+			<!-- Row 1: meter in -->
+			<cell rows="2">
+				<vbox vexpand="true" bg.color="bg_schema">
+					<label text="labels.chan.in" pad.b="3" pad.t="3"/>
+					<ledmeter vexpand="true" angle="1">
+						<ui:if test=":is_stereo">
+							<ledchannel id="ilm_l" min="-72 db" max="12 db" log="true" type="rms_peak" peak.visibility="true" value.color="left_in"/>
+							<ledchannel id="ilm_r" min="-72 db" max="12 db" log="true" type="rms_peak" peak.visibility="true" value.color="right_in"/>
+						</ui:if>
+						<ui:if test="!:is_stereo">
+							<ledchannel id="ilm" min="-72 db" max="12 db" log="true" type="rms_peak" peak.visibility="true" value.color="mono_in"/>
+						</ui:if>
+					</ledmeter>
+				</vbox>
+			</cell>
+			<!-- Row 1: meter sidechain -->
+			<cell rows="2">
+				<vbox vexpand="true" bg.color="bg_schema">
+					<label text="labels.sc.SC" pad.b="3" pad.t="3"/>
+					<ledmeter vexpand="true" angle="1">
+						<ui:if test=":is_stereo">
+							<ledchannel id="slm_l" min="-72 db" max="12 db" log="true" type="rms_peak" peak.visibility="true" value.color="sidechain_1"/>
+							<ledchannel id="slm_r" min="-72 db" max="12 db" log="true" type="rms_peak" peak.visibility="true" value.color="sidechain_2"/>
+						</ui:if>
+						<ui:if test="!:is_stereo">
+							<ledchannel id="slm" min="-72 db" max="12 db" log="true" type="rms_peak" peak.visibility="true" value.color="sidechain_1"/>
+						</ui:if>
+					</ledmeter>
+				</vbox>
+			</cell>
+			<!-- Row 1: meter out -->
+			<cell rows="2">
+				<vbox vexpand="true" bg.color="bg_schema">
+					<label text="labels.chan.out" pad.b="3" pad.t="3"/>
+					<ledmeter vexpand="true" angle="1">
+						<ui:if test=":is_stereo">
+							<ledchannel id="olm_l" min="-72 db" max="12 db" log="true" type="rms_peak" peak.visibility="true" value.color="left"/>
+							<ledchannel id="olm_r" min="-72 db" max="12 db" log="true" type="rms_peak" peak.visibility="true" value.color="right"/>
+						</ui:if>
+						<ui:if test="!:is_stereo">
+							<ledchannel id="olm" min="-72 db" max="12 db" log="true" type="rms_peak" peak.visibility="true" value.color="mono"/>
+						</ui:if>
+					</ledmeter>
+				</vbox>
+			</cell>
 
-				<ui:if test=":is_stereo">
-					<mesh id="meters" xi="0" yi="2" oy=":_ui_zoomable_spectrum_graph ? 1 : 3" width="0" color="left_in" color.a="0.8" fcolor.a="0.8" fill="true" fcolor="left_in" visibility=":ifft_l"/>
-					<mesh id="meters" xi="0" yi="6" oy=":_ui_zoomable_spectrum_graph ? 1 : 3" width="0" color="right_in" color.a="0.8" fcolor.a="0.8" fill="true" fcolor="right_in" visibility=":ifft_r"/>
-					<mesh id="meters" xi="0" yi="3" oy=":_ui_zoomable_spectrum_graph ? 1 : 3" width="0" color="sidechain_1" color.a="0.8" fcolor.a="0.8" fill="true" fcolor="sidechain_1" visibility=":sfft_l"/>
-					<mesh id="meters" xi="0" yi="7" oy=":_ui_zoomable_spectrum_graph ? 1 : 3" width="0" color="sidechain_2" color.a="0.8" fcolor.a="0.8" fill="true" fcolor="sidechain_2" visibility=":sfft_r"/>
-					<mesh id="meters" xi="0" yi="4" oy=":_ui_zoomable_spectrum_graph ? 1 : 3" width="2" color="left" visibility=":offt_l"/>
-					<mesh id="meters" xi="0" yi="8" oy=":_ui_zoomable_spectrum_graph ? 1 : 3" width="2" color="right" visibility=":offt_r"/>
-					<mesh id="meters" xi="0" yi="1" width="3" color="left" smooth="true"/>
-					<mesh id="meters" xi="0" yi="5" width="3" color="right" smooth="true"/>
-				</ui:if>
-				<ui:if test="!:is_stereo">
-					<mesh id="meters" xi="0" yi="2" oy=":_ui_zoomable_spectrum_graph ? 1 : 3" width="0" color="mono_in" color.a="0.8" fcolor.a="0.8" fill="true" fcolor="mono_in" visibility=":ifft"/>
-					<mesh id="meters" xi="0" yi="3" oy=":_ui_zoomable_spectrum_graph ? 1 : 3" width="0" color="sidechain_1" color.a="0.8" fcolor.a="0.8" fill="true" fcolor="sidechain_1" visibility=":sfft"/>
-					<mesh id="meters" xi="0" yi="4" oy=":_ui_zoomable_spectrum_graph ? 1 : 3" width="2" color="mono" visibility=":offt"/>
-					<mesh id="meters" xi="0" yi="1" width="3" color="left" smooth="true"/>
-				</ui:if>
+			<!-- Row 1: signal -->
+			<cell rows="2">
+				<vbox>
 
-				<!-- Axis -->
-				<axis min="10" max="24000" angle="0.0" log="true" visibility="false"/>
-				<axis min="-84 db / (:zoom ** 3)" max="12 db * (:zoom ** (3.0/7.0))" color="graph_prim" angle="0.5" log="true"/>
-				<axis min="-1" max="1" visibility="false" angle="0.5"/>
-				<axis min="-84 db" max="12 db" color="graph_prim" angle="0.5" log="true"/>
+					<group text="groups.signal" expand="true">
+						<grid rows="6" cols="2" hspacing="4">
+							<knob id="g_in" pad.r="4" activity=":out_in" inactive.bg.bright="1.0"/>
+							<vbox vfill="false">
+								<button id="out_in" ui:inject="Button_cyan_8" text="labels.input" hfill="true" pad.b="4"/>
+								<value id="g_in" sline="true" halign="0" activity=":out_in" inactive.bg.bright="1.0"/>
+							</vbox>
 
-				<!-- Text -->
-				<ui:with ox="0" oy="2" y="0" halign="1" valign="1">
-					<text x="10" text="graph.units.hz"/>
-					<text x="20" text="20"/>
-					<text x="30" text="30"/>
-					<text x="50" text="50"/>
-					<text x="100" text="100"/>
-					<text x="200" text="200"/>
-					<text x="300" text="300"/>
-					<text x="500" text="500"/>
-					<text x="1000" text="graph.values.x_k" text:value="1"/>
-					<text x="2000" text="graph.values.x_k" text:value="2"/>
-					<text x="3000" text="graph.values.x_k" text:value="3"/>
-					<text x="5000" text="graph.values.x_k" text:value="5"/>
-					<text x="10000" text="graph.values.x_k" text:value="10"/>
-					<text x="20000" text="graph.values.x_k" text:value="20"/>
-				</ui:with>
+							<knob id="g_sc" pad.r="4"/>
+							<vbox vfill="false">
+								<button id="out_sc" ui:inject="Button_cyan_8" text="labels.sidechain" hfill="true" pad.b="4"/>
+								<value id="g_sc" sline="true" halign="0"/>
+							</vbox>
 
-				<ui:with x="10" halign="1" valign="1">
-					<ui:for id="g" first="-72" last="48" step="12">
-						<text y="${g} db" text="${g}"/>
-					</ui:for>
-					<text y="0 db" ox="0" oy="2" text="graph.units.db" valign="-1"/>
-					<ui:for id="g" first="-42" last="18" step="12">
-						<text y="${g} db" text="${g}" visibility=":zoom le -9 db"/>
-					</ui:for>
-					<ui:for id="g" first="-33" last="9" step="6">
-						<text y="${g} db" text="${g}" visibility=":zoom le -15 db"/>
-					</ui:for>
-				</ui:with>
+							<knob id="g_out" pad.r="4"/>
+							<vbox vfill="false">
+								<label text="labels.output" expand="true" halign="0"/>
+								<value id="g_out" width.min="50" sline="true" halign="0"/>
+							</vbox>
+						</grid>
+					</group>
 
-				<ui:for id="i" first="1" count="7">
-					<ui:with ox="0" oy="2" y="1" valign="-1" color="graph_marker_cycle" visibility="false" pad.h="4" font.bold="true">
-						<text ui:id="split_note_${i}" x=":sf_${i}" halign="(:sf_${i} lt 500) ? 1 : -1" text.halign="(:sf_${i} lt 500) ? -1 : 1" color.hue="${:i * 0.125}"/>
-					</ui:with>
-				</ui:for>
-			</graph>
-		</group>
+					<hsep pad.v="2" bg.color="bg" vreduce="true" vexpand="false"/>
 
-		<!-- Row 1: zoom -->
-		<cell rows="2">
-			<vbox vexpand="true" bg.color="bg_schema">
-				<label font.name="lsp-icons" font.size="12" font.antialias="true" text="icons.main.zoom" color="text_icon" pad.b="4" pad.t="4"/>
-				<fader id="zoom" angle="1" vexpand="true" bg.inherit="true" flat="true"/>
-				<value id="zoom" width="40"/>
-			</vbox>
-		</cell>
-		<!-- Row 1: meter in -->
-		<cell rows="2">
-			<vbox vexpand="true" bg.color="bg_schema">
-				<label text="labels.chan.in" pad.b="3" pad.t="3"/>
-				<ledmeter vexpand="true" angle="1">
-					<ui:if test=":is_stereo">
-						<ledchannel id="ilm_l" min="-72 db" max="12 db" log="true" type="rms_peak" peak.visibility="true" value.color="left_in"/>
-						<ledchannel id="ilm_r" min="-72 db" max="12 db" log="true" type="rms_peak" peak.visibility="true" value.color="right_in"/>
-					</ui:if>
-					<ui:if test="!:is_stereo">
-						<ledchannel id="ilm" min="-72 db" max="12 db" log="true" type="rms_peak" peak.visibility="true" value.color="mono_in"/>
-					</ui:if>
-				</ledmeter>
-			</vbox>
-		</cell>
-		<!-- Row 1: meter sidechain -->
-		<cell rows="2">
-			<vbox vexpand="true" bg.color="bg_schema">
-				<label text="labels.sc.SC" pad.b="3" pad.t="3"/>
-				<ledmeter vexpand="true" angle="1">
-					<ui:if test=":is_stereo">
-						<ledchannel id="slm_l" min="-72 db" max="12 db" log="true" type="rms_peak" peak.visibility="true" value.color="sidechain_1"/>
-						<ledchannel id="slm_r" min="-72 db" max="12 db" log="true" type="rms_peak" peak.visibility="true" value.color="sidechain_2"/>
-					</ui:if>
-					<ui:if test="!:is_stereo">
-						<ledchannel id="slm" min="-72 db" max="12 db" log="true" type="rms_peak" peak.visibility="true" value.color="sidechain_1"/>
-					</ui:if>
-				</ledmeter>
-			</vbox>
-		</cell>
-		<!-- Row 1: meter out -->
-		<cell rows="2">
-			<vbox vexpand="true" bg.color="bg_schema">
-				<label text="labels.chan.out" pad.b="3" pad.t="3"/>
-				<ledmeter vexpand="true" angle="1">
-					<ui:if test=":is_stereo">
-						<ledchannel id="olm_l" min="-72 db" max="12 db" log="true" type="rms_peak" peak.visibility="true" value.color="left"/>
-						<ledchannel id="olm_r" min="-72 db" max="12 db" log="true" type="rms_peak" peak.visibility="true" value.color="right"/>
-					</ui:if>
-					<ui:if test="!:is_stereo">
-						<ledchannel id="olm" min="-72 db" max="12 db" log="true" type="rms_peak" peak.visibility="true" value.color="mono"/>
-					</ui:if>
-				</ledmeter>
-			</vbox>
-		</cell>
+					<hbox bg.color="bg_schema" spacing="4" pad.v="4" pad.h="6">
+						<button id="active" text="labels.active" hfill="true"/>
+						<button id="invert" text="labels.invert" hfill="true"/>
+					</hbox>
 
-		<!-- Row 1: signal -->
-		<cell rows="2">
-			<vbox spacing="4">
-				<group text="groups.signal" expand="true">
-					<grid rows="7" cols="2" hspacing="4">
-						<knob id="g_in" pad.r="4"/>
-						<vbox vfill="false">
-							<button id="out_in" text="labels.input" />
-							<value id="g_in" sline="true" halign="0"/>
-						</vbox>
-						
-						<knob id="g_sc" pad.r="4"/>
-						<vbox vfill="false">
-							<button id="out_sc" text="labels.sidechain"/>
-							<value id="g_sc" sline="true" halign="0"/>
-						</vbox>
+					<void pad.v="2" bg.color="bg" vreduce="true" vexpand="false"/>
 
-						<knob id="g_out" pad.r="4"/>
-						<vbox vfill="false">
-							<label text="labels.output" expand="true" halign="0"/>
-							<value id="g_out" width.min="50" sline="true" halign="0"/>
-						</vbox>
-						
-						<button id="active" text="labels.active" />
-						<button id="invert" text="labels.invert" />
-					</grid>
-				</group>
+					<!-- Analysis -->
+					<group text="groups.analysis" expand="true" ipadding="0">
+						<vbox>
 
-				<!-- Analysis -->
-				<group text="groups.analysis" expand="true" ipadding="0">
-					<vbox>
-						<grid rows="6" cols="2">
-							<ui:if test=":is_stereo">
-								<align halign="-1" pad.t="4" pad.l="13">
+							<grid rows="6" cols="2">
+								<align halign="-1" pad.t="4" pad.l="6">
 									<label text="labels.fft.fft_in"/>
 								</align>
-								<hbox spacing="4" pad.v="4" pad.r="13">
-									<button id="ifft_l" text="labels.chan.L_eft" hfill="true" ui:inject="Button_left_8"/>
-									<button id="ifft_r" text="labels.chan.R_ight" hfill="true" ui:inject="Button_right_8"/>
-								</hbox>
-							</ui:if>
-							<ui:if test="!:is_stereo">
-								<cell cols="2">
-									<button id="ifft" text="labels.fft.fft_in"/>
-								</cell>
-							</ui:if>
+								<align halign="1" pad.t="4" pad.l="6">
+									<hbox spacing="4" pad.v="4" pad.h="6" hfill="false">
+										<ui:if test=":is_stereo">
+											<button id="ifft_l" text="labels.chan.L_eft" size="19" ui:inject="Button_left_8"/>
+											<button id="ifft_r" text="labels.chan.R_ight" size="19" ui:inject="Button_right_8"/>
+										</ui:if>
+										<ui:if test="!:is_stereo">
+											<button id="ifft" text="labels.chan.on" height="19" width="42" ui:inject="Button_mono_8"/>
+										</ui:if>
+									</hbox>
+								</align>
 
-							<cell cols="2"><hsep pad.v="2" bg.color="bg" vreduce="true"/></cell>
+								<cell cols="2"><hsep pad.v="2" bg.color="bg" vreduce="true"/></cell>
 
-							<ui:if test=":is_stereo">							
-								<align halign="-1" pad.t="4" pad.l="13">
+								<align halign="-1" pad.t="4" pad.l="6">
 									<label text="labels.fft.fft_sc"/>
 								</align>
-								<hbox spacing="4" pad.v="4" pad.r="13">
-										<button id="sfft_l" text="labels.chan.L_eft" hfill="true" ui:inject="Button_left_8"/>
-										<button id="sfft_r" text="labels.chan.R_ight" hfill="true" ui:inject="Button_right_8"/>
-								</hbox>
-							</ui:if>
-							<ui:if test="!:is_stereo">
-								<cell cols="2">
-									<button id="sfft" text="labels.fft.fft_sc"/>
-								</cell>
-							</ui:if>
+								<align halign="1" pad.t="4" pad.l="6">
+									<hbox spacing="4" pad.v="4" pad.h="6" hfill="false">
+										<ui:if test=":is_stereo">
+											<button id="sfft_l" text="labels.chan.L_eft" size="19" ui:inject="Button_left_8"/>
+											<button id="sfft_r" text="labels.chan.R_ight" size="19" ui:inject="Button_right_8"/>
+										</ui:if>
+										<ui:if test="!:is_stereo">
+											<button id="sfft" text="labels.chan.on" height="19" width="42" ui:inject="Button_mono_8"/>
+										</ui:if>
+									</hbox>
+								</align>
 
-							<cell cols="2"><hsep pad.v="2" bg.color="bg" vreduce="true"/></cell>
+								<cell cols="2"><hsep pad.v="2" bg.color="bg" vreduce="true"/></cell>
 
-							<ui:if test=":is_stereo">
-								<align halign="-1" pad.t="4" pad.l="13">
+								<align halign="-1" pad.t="4" pad.l="6">
 									<label text="labels.fft.fft_out" halign="0"/>
 								</align>
-								<hbox spacing="4" pad.v="4" pad.r="13">
-									<button id="offt_l" text="labels.chan.L_eft" hfill="true" ui:inject="Button_left_8"/>
-									<button id="offt_r" text="labels.chan.R_ight" hfill="true" ui:inject="Button_right_8"/>
-								</hbox>
-							</ui:if>
-							<ui:if test="!:is_stereo">
-								<cell cols="2">
-									<button id="offt" text="labels.fft.fft_out"/>
-								</cell>
-							</ui:if>
+								<align halign="1" pad.t="4" pad.l="6">
+									<hbox spacing="4" pad.v="4" pad.h="6" hfill="false">
+										<ui:if test=":is_stereo">
+											<button id="offt_l" text="labels.chan.L_eft" size="19" ui:inject="Button_left_8"/>
+											<button id="offt_r" text="labels.chan.R_ight" size="19" ui:inject="Button_right_8"/>
+										</ui:if>
+										<ui:if test="!:is_stereo">
+											<button id="offt" text="labels.chan.on" height="19" width="42" ui:inject="Button_mono_8"/>
+										</ui:if>
+									</hbox>
+								</align>
 
-							<cell cols="2"><hsep pad.v="2" bg.color="bg" vreduce="true"/></cell>
-						</grid>
+								<cell cols="2"><hsep pad.v="2" bg.color="bg" vreduce="true"/></cell>
+							</grid>
 
-						<grid rows="2" cols="2" transpose="false" expand="true" hspacing="4">
-							<knob id="react" size="20" pad.r="4" pad.l="6"/>
-							<vbox vfill="false" pad.r="6">
-								<label text="labels.metering.reactivity" halign="0"/>
-								<value id="react" width.min="50" sline="true" halign="0"/>
-							</vbox>
+							<grid rows="2" cols="2" transpose="false" expand="true" hspacing="4">
+								<knob id="react" size="20" pad.r="4" pad.l="6"/>
+								<vbox vfill="false" pad.r="6">
+									<label text="labels.metering.reactivity" halign="0"/>
+									<value id="react" width.min="50" sline="true" halign="0"/>
+								</vbox>
 
-							<knob id="shift" size="20" pad.r="4" pad.l="6"/>
-							<vbox vfill="false" pad.r="6">
-								<label text="labels.metering.shift" halign="0"/>
-								<value id="shift" width.min="50" sline="true" halign="0"/>
-							</vbox>
-						</grid>
-					</vbox>
-				</group>
-			</vbox>
-		</cell>
+								<knob id="shift" size="20" pad.r="4" pad.l="6"/>
+								<vbox vfill="false" pad.r="6">
+									<label text="labels.metering.shift" halign="0"/>
+									<value id="shift" width.min="50" sline="true" halign="0"/>
+								</vbox>
+							</grid>
+						</vbox>
+					</group>
+				</vbox>
+			</cell>
 
-		<!-- Row 2: bottom line -->
-		<hbox spacing="4" vreduce="true" bg.color="bg_schema" pad.h="6">
-			<label text="labels.mode" />
-			<combo id="mode" />
-			<label text="labels.slope" />
-			<combo id="slope" />
-			<label text="labels.type" />
-			<combo id="type" />
-			<ui:if test=":is_stereo">
-				<label text="labels.source" />
-				<combo id="source" />
-			</ui:if>
+			<!-- Row 2: bottom line -->
+			<hbox vreduce="true" bg.color="bg_schema" pad.h="6">
+				<label text="labels.mode" pad.r="4"/>
+				<combo id="mode"/>
+				<label text="labels.slope" pad.l="12" pad.r="4"/>
+				<combo id="slope"/>
+				<label text="labels.type" pad.l="12" pad.r="4"/>
+				<combo id="type"/>
+				<ui:if test=":is_stereo">
+					<label text="labels.source" pad.l="12" pad.r="4"/>
+					<combo id="source"/>
+				</ui:if>
 
-			<button ui:id="premix_trigger" id="showpmx" text="labels.premix" size="22" />
-			<button ui:id="mix_trigger" id="showmx" text="labels.mix" size="22" pad.v="4"/>
+				<button ui:id="premix_trigger" id="showpmx" text="labels.premix" size="22" pad.l="12" pad.r="4"/>
+				<button ui:id="mix_trigger" id="showmx" text="labels.mix" size="22" pad.v="4" pad.r="6"/>
 
-			<void hexpand="true" hfill="true"/>
+				<void hexpand="true" hfill="true"/>
 
-			<vsep pad.h="2" bg.color="bg" reduce="true"/>
-			<shmlink id="link" />
-		</hbox>
-
-		<!-- Row 3: band processing -->
-		<cell cols="6">
+				<vsep pad.h="2" bg.color="bg" reduce="true"/>
+				<shmlink id="link" pad.l="6"/>
+			</hbox>
+		</grid>
+		<!-- Band processing -->
+		<hbox >
 			<grid rows="9" cols="33" transpose="true" hexpand="true">
 				<!-- Labels -->
-				<label text="labels.band" pad.v="4" bg.color="bg_schema" hreduce="true"/>
-				<vbox pad.v="4">
-					<label text="labels.range"/>
-					<label text="labels.units.:hz"/>
-				</vbox>
-				<label text="labels.controls" pad.v="4" bg.color="bg_schema"/>
+				<ui:with bg.color="bg_schema">
+					<label text="labels.band" pad.v="4" hreduce="true"/>
+					<vbox pad.v="4">
+						<label text="labels.range"/>
+						<label text="labels.units.:hz"/>
+					</vbox>
+					<label text="labels.controls" pad.v="4"/>
 
-				<cell rows="2" pad.v="4" hreduce="true" pad.h="6">
-					<label text="labels.hold_release:ms_ms"/>
-				</cell>
-				<cell rows="2" pad.v="4">
-					<label text="labels.lookahead_duck:ms_ms" bg.color="bg_schema"/>
-				</cell>
-				<cell rows="2" pad.v="4">
-					<label text="labels.amount_stereo_link:db_pc"/>
-				</cell>
+					<cell rows="2" pad.v="4" hreduce="true" pad.h="6">
+						<label text="labels.hold_release:ms_ms"/>
+					</cell>
+					<cell rows="2" pad.v="4">
+						<label text="labels.lookahead_duck:ms_ms"/>
+					</cell>
 
+					<cell rows="2" pad.v="4">
+						<ui:if test=":is_stereo">
+							<label text="labels.amount_stereo_link:db_pc"/>
+						</ui:if>
+						<ui:if test="!:is_stereo">
+							<label text="labels.amount:db"/>
+						</ui:if>
+					</cell>
+				</ui:with>
 				<!-- Bands -->
 				<ui:for id="i" first="1" count="8">
-					<ui:eval id="hue" value="(:i - 1) * 0.125" />
-					<ui:set id="bright" value="((${i} ieq 1) or :se_${:i-1}) ? 1 : 0.75" />
-					<ui:set id="bg_bright" value="((${i} ieq 1) or :se_${:i-1}) ? 1.0 : :const_bg_darken" />
-					<ui:set id="scolor" value="((${i} ieq 1) or :se_${:i-1}) ? 'cycle' : 'cycle_inactive'" />
+					<ui:eval id="hue" value="(:i - 1) * 0.125"/>
+					<!-- <ui:set id="bright" value="((${i} ieq 1) or :se_${:i-1}) ? 1 : 0.75"/> <ui:set id="bg_bright" value="((${i} ieq 1) or :se_${:i-1}) ? 1.0 : :const_bg_darken"/> -->
+					<!-- <ui:set id="activity" value="((${i} ieq 1) or :se_${:i-1}) ? true : false"/> -->
+					<ui:set id="activity" value="(!:bm_${:i} and ((${has_solo}) ? :bs_${:i} : true) and (ex :se_${:i-1} ? (:se_${:i-1}) : true ))"/>
+					<!-- <ui:set id="bright" value="(!${activity}) ? 0.75 : 1.0"/>
+					<ui:set id="bg_bright" value="(!${activity}) ? :const_bg_darken : 1.0"/> -->
 
-					<!-- Column 1 -->					
+					<!-- Column 1 -->
 					<!-- Separator -->
 					<cell rows="9"><vsep pad.h="2" bg.color="bg" hreduce="true"/></cell>
-					
+
 					<!-- Column 2 -->
 					<ui:if test=":i ieq 1">
-						<ui:with bright="${bright}" bg.bright="${bg_bright}">
+						<ui:with bg.color="bg_schema" activity="${activity}" bg.bright="(!${activity}) ? :const_bg_darken : 1.0" bright="(!${activity}) ? 0.75 : 1.0">
 							<cell cols="3" bg.color="bg_schema">
-								<button text="labels.chan.num_id" text:id="${i}" value="1" editable="false" pointer="arrow" hfill="true" ui:inject="Button_ne_Cycle" height="19" pad.h="6" pad.v="4"/>
+								<button text="labels.chan.num_id" text:id="${i}" value="1" editable="false" pointer="arrow" hfill="true" ui:inject="Button_Cycle" height="19" pad.h="6" pad.v="4"/>
 							</cell>
-							<void />
+							<void activity="true"/>
 						</ui:with>
 					</ui:if>
 
 					<ui:if test=":i igt 1">
-						<ui:with bright="${bright}" bg.bright="${bg_bright}">
-							<cell cols="3" bg.color="bg_schema">
+						<ui:with activity="${activity}" bg.color="bg_schema">
+							<cell cols="3">
 								<button
 									id="se_${:i-1}"
 									text="labels.chan.num_id"
@@ -375,12 +392,12 @@
 									pad.h="6"
 									pad.v="4"/>
 							</cell>
-							<knob id="sf_${:i-1}" size="16" ssize="3" pad.v="4" scolor="${scolor}" scolor.hue="${hue}"/>
+							<knob id="sf_${:i-1}" size="16" ssize="3" pad.v="4" scolor.hue="${hue}"/>
 						</ui:with>
 					</ui:if>
 
-					<ui:with bright="${bright}" bg.bright="${bg_bright}">
-						<cell cols="3" pad.h="6" bg.color="bg_schema">
+					<ui:with activity="${activity}" bg.color="bg_schema" bg.bright="(!${activity}) ? :const_bg_darken : 1.0" bright="(!${activity}) ? 0.75 : 1.0">
+						<cell cols="3" pad.h="6" >
 							<grid rows="2" cols="1" hspacing="4" vreduce="true">
 								<button
 									id="be_${i}"
@@ -401,14 +418,24 @@
 								</hbox>
 							</grid>
 						</cell>
-						
-						<knob id="ht_${i}" size="16" ssize="3" pad.t="4" scolor="${scolor}" scolor.hue="${hue}"/>
+
+						<knob id="ht_${i}" size="16" ssize="3" pad.t="4" scolor.hue="${hue}"/>
 						<value id="ht_${i}" pad.b="4" width.min="32" detailed="false"/>
-						<knob id="lk_${i}" size="16" ssize="3" pad.t="4" scolor="${scolor}" scolor.hue="${hue}" bg.color="bg_schema"/>
+						<knob id="lk_${i}" size="16" ssize="3" pad.t="4" scolor.hue="${hue}" bg.color="bg_schema"/>
 						<value id="lk_${i}" pad.b="4" width.min="32" detailed="false" bg.color="bg_schema"/>
-						<knob id="am_${i}" size="16" ssize="3" pad.t="4" scolor="${scolor}" scolor.hue="${hue}"/>
-						<value id="am_${i}" pad.b="4" width.min="32" detailed="false"/>
-						
+						<ui:if test=":is_stereo">
+							<knob id="am_${i}" size="16" ssize="3" pad.t="4" scolor.hue="${hue}"/>
+							<value id="am_${i}" pad.b="4" width.min="32" detailed="false"/>
+						</ui:if>
+						<ui:if test="!:is_stereo">
+							<cell rows="2">
+								<!-- <bevel/> -->
+								<align halign="-1" valign="1">
+									<bevel width.min="36" height.min="45" ui:inject="Bevel_cycle" dir.deg="128"/>
+								</align>
+							</cell>
+						</ui:if>
+
 						<!-- Column 3 -->
 						<cell cols="2">
 							<vbox height="36" vreduce="true">
@@ -417,27 +444,27 @@
 									<value id="fre_${i}" width.min="30" sline="true" detailed="false"/>
 								</ui:if>
 								<ui:if test=":i ine 1">
-									<value id="sf_${:i-1}" width.min="30" detailed="false" />
+									<value id="sf_${:i-1}" width.min="30" detailed="false"/>
 									<value id="fre_${i}" detailed="false" visibility=":se_${:i-1}"/>
 									<label text="labels.chan.off" visibility="not :se_${:i-1}"/>
 								</ui:if>
 							</vbox>
 						</cell>
 
-						<knob id="rt_${i}" size="16" pad.t="4" ssize="3" scolor="${scolor}" scolor.hue="${hue}"/>
+						<knob id="rt_${i}" size="16" pad.t="4" ssize="3" scolor.hue="${hue}"/>
 						<value id="rt_${i}" pad.b="4" width.min="32" detailed="false"/>
-						<knob id="dt_${i}" size="16" pad.t="4" ssize="3" scolor="${scolor}" scolor.hue="${hue}" bg.color="bg_schema"/>
+						<knob id="dt_${i}" size="16" pad.t="4" ssize="3" scolor.hue="${hue}" bg.color="bg_schema"/>
 						<value id="dt_${i}" pad.b="4" detailed="false" bg.color="bg_schema"/>
+
 						<ui:if test=":is_stereo">
-							<knob id="bsl_${i}" size="16" pad.t="4" ssize="3" scolor="${scolor}" scolor.hue="${hue}"/>
+							<knob id="bsl_${i}" size="16" pad.t="4" ssize="3" scolor.hue="${hue}"/>
 							<value id="bsl_${i}" pad.b="4" width.min="32" detailed="false"/>
 						</ui:if>
 						<ui:if test="!:is_stereo">
-							<cell rows="2">
-								<void />
-							</cell>
+							<knob id="am_${i}" size="16" ssize="3" pad.t="4" scolor.hue="${hue}"/>
+							<value id="am_${i}" pad.b="4" width.min="32" detailed="false"/>
 						</ui:if>
-						
+
 						<!-- Column 4 -->
 						<cell rows="6">
 							<vbox>
@@ -456,44 +483,44 @@
 					</ui:with>
 				</ui:for>
 			</grid>
-		</cell>
-	</grid>
-	
+		</hbox>
+	</vbox>
+
 	<!-- Premix overlay -->
 	<overlay id="showpmx" trigger="premix_trigger" hpos="1" vpos="1" halign="-1" valign="1" ipadding.t="4">
 		<group text="groups.premix" vexpand="false" ipadding="0">
 			<grid rows="3" cols="8" spacing="0" bg.color="bg_schema" transpose="true">
-				<label text="labels.premix.in_to_sc" pad.h="6" pad.v="4" />
-				<knob id="in2sc" />
-				<value id="in2sc" pad.h="6" pad.v="4" />
-				
-				<label text="labels.premix.in_to_link" pad.h="6" pad.v="4" />
-				<knob id="in2lk" />
-				<value id="in2lk" />
-				
-				<cell rows="3"><vsep pad.h="2" bg.color="bg" reduce="true" /></cell>
-				
-				<label text="labels.premix.sc_to_in" pad.h="6" pad.v="4" />
-				<knob id="sc2in" />
-				<value id="sc2in" pad.h="6" pad.v="4" />
-				
-				<label text="labels.premix.sc_to_link" pad.h="6" pad.v="4" />
-				<knob id="sc2lk" />
-				<value id="sc2lk" pad.h="6" pad.v="4" />
-				
-				<cell rows="3"><vsep pad.h="2" bg.color="bg" reduce="true" /></cell>
-				
-				<label text="labels.premix.link_to_in" pad.h="6" pad.v="4" />
-				<knob id="lk2in" />
-				<value id="lk2in" pad.h="6" pad.v="4" />
-				
-				<label text="labels.premix.link_to_sc" pad.h="6" pad.v="4" />
-				<knob id="lk2sc" />
-				<value id="lk2sc" pad.h="6" pad.v="4" />
+				<label text="labels.premix.in_to_sc" pad.h="6" pad.v="4"/>
+				<knob id="in2sc"/>
+				<value id="in2sc" pad.h="6" pad.v="4"/>
+
+				<label text="labels.premix.in_to_link" pad.h="6" pad.v="4"/>
+				<knob id="in2lk"/>
+				<value id="in2lk"/>
+
+				<cell rows="3"><vsep pad.h="2" bg.color="bg" reduce="true"/></cell>
+
+				<label text="labels.premix.sc_to_in" pad.h="6" pad.v="4"/>
+				<knob id="sc2in"/>
+				<value id="sc2in" pad.h="6" pad.v="4"/>
+
+				<label text="labels.premix.sc_to_link" pad.h="6" pad.v="4"/>
+				<knob id="sc2lk"/>
+				<value id="sc2lk" pad.h="6" pad.v="4"/>
+
+				<cell rows="3"><vsep pad.h="2" bg.color="bg" reduce="true"/></cell>
+
+				<label text="labels.premix.link_to_in" pad.h="6" pad.v="4"/>
+				<knob id="lk2in"/>
+				<value id="lk2in" pad.h="6" pad.v="4"/>
+
+				<label text="labels.premix.link_to_sc" pad.h="6" pad.v="4"/>
+				<knob id="lk2sc"/>
+				<value id="lk2sc" pad.h="6" pad.v="4"/>
 			</grid>
 		</group>
 	</overlay>
-	
+
 	<!-- Mix overlay -->
 	<overlay id="showmx" trigger="mix_trigger" hpos="1" vpos="1" halign="-1" valign="1" ipadding.t="4">
 		<group text="groups.mix" vexpand="false" ipadding="0">
