@@ -356,8 +356,6 @@
 					<!-- <ui:set id="bright" value="((${i} ieq 1) or :se_${:i-1}) ? 1 : 0.75"/> <ui:set id="bg_bright" value="((${i} ieq 1) or :se_${:i-1}) ? 1.0 : :const_bg_darken"/> -->
 					<!-- <ui:set id="activity" value="((${i} ieq 1) or :se_${:i-1}) ? true : false"/> -->
 					<ui:set id="activity" value="(!:bm_${:i} and ((${has_solo}) ? :bs_${:i} : true) and (ex :se_${:i-1} ? (:se_${:i-1}) : true ))"/>
-					<!-- <ui:set id="bright" value="(!${activity}) ? 0.75 : 1.0"/>
-					<ui:set id="bg_bright" value="(!${activity}) ? :const_bg_darken : 1.0"/> -->
 
 					<!-- Column 1 -->
 					<!-- Separator -->
