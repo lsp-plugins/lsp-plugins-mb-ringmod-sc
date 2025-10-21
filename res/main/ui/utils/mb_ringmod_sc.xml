@@ -378,7 +378,12 @@
 							<cell cols="3" bg.color="bg_schema">
 								<button text="labels.chan.num_id" text:id="${i}" value="1" editable="false" pointer="arrow" hfill="true" ui:inject="Button_Cycle" height="19" pad.h="6" pad.v="4"/>
 							</cell>
-							<void activity="true"/>
+							<cell cols="3" bg.color="bg_schema">
+								<vbox height="36" vreduce="true">
+									<label text="0"/>
+									<value id="fre_${i}" width.min="30" sline="true" detailed="false"/>
+								</vbox>
+							</cell>
 						</ui:with>
 					</ui:if>
 
@@ -406,7 +411,7 @@
 					</ui:if>
 
 					<ui:with activity="${activity}" bg.color="bg_schema" bg.bright="(!${activity}) ? :const_bg_darken : 1.0" bright="(!${activity}) ? 0.75 : 1.0">
-						<cell cols="3" pad.h="6" >
+						<cell cols="3" pad.h="6">
 							<grid rows="2" cols="1" hspacing="4" vreduce="true">
 								<button
 									id="be_${i}"
@@ -446,19 +451,15 @@
 						</ui:if>
 
 						<!-- Column 3 -->
-						<cell cols="2">
-							<vbox height="36" vreduce="true">
-								<ui:if test=":i ieq 1">
-									<label text="0"/>
-									<value id="fre_${i}" width.min="30" sline="true" detailed="false"/>
-								</ui:if>
-								<ui:if test=":i ine 1">
+						<ui:if test=":i ine 1">
+							<cell cols="2">
+								<vbox height="36" vreduce="true">
 									<value id="sf_${:i-1}" width.min="30" detailed="false"/>
 									<value id="fre_${i}" detailed="false" visibility=":se_${:i-1}"/>
 									<label text="labels.chan.off" visibility="not :se_${:i-1}"/>
-								</ui:if>
-							</vbox>
-						</cell>
+								</vbox>
+							</cell>
+						</ui:if>
 
 						<knob id="rt_${i}" size="16" pad.t="4" ssize="3" scolor.hue="${hue}"/>
 						<value id="rt_${i}" pad.b="4" width.min="32" detailed="false"/>
