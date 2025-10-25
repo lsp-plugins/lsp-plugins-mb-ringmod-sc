@@ -1,0 +1,13 @@
+{
+	"mb_ringmod": {
+		"notes": {
+			"full": "{@id}\n{@frequency} Hz\n{@note}{@octave}{@cents}",
+			"unknown": "{@id}\n{@frequency} Hz"
+		},
+		"splits": {
+			"index": {
+				"split_id": "Split #{@id}"
+			}
+		}
+	}
+}
