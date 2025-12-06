@@ -88,9 +88,9 @@ effect, additional smoothing, prediction and reactivity controls were added.</p>
 
 <p><b>'Analysis' section:</b></p>
 <ul>
-	<li><b>FFT<?= $sm ?> In</b> - enables FFT curve graph of input signal on the spectrum graph.</li>
-	<li><b>FFT<?= $sm ?> SC</b> - enables FFT curve graph of sidechain signal on the spectrum graph.</li>
-	<li><b>FFT<?= $sm ?> Out</b> - enables FFT curve graph of output signal on the spectrum graph.</li>
+	<li><b>FFT In</b> - enables FFT curve graph of input signal on the spectrum graph.</li>
+	<li><b>FFT SC</b> - enables FFT curve graph of sidechain signal on the spectrum graph.</li>
+	<li><b>FFT Out</b> - enables FFT curve graph of output signal on the spectrum graph.</li>
 	<li><b>Reactivity</b> - the reactivity (smoothness) of the spectral analysis.</li>
 	<li><b>Shift</b> - allows to adjust the overall gain of the analysis.</li>
 </ul>
