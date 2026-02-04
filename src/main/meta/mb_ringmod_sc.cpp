@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2025 Linux Studio Plugins Project <https://lsp-plug.in/>
- *           (C) 2025 Vladimir Sadovnikov <sadko4u@gmail.com>
+ * Copyright (C) 2026 Linux Studio Plugins Project <https://lsp-plug.in/>
+ *           (C) 2026 Vladimir Sadovnikov <sadko4u@gmail.com>
  *
  * This file is part of lsp-plugins-mb-ringmod-sc
  * Created on: 08 сен 2025 г.
@@ -20,6 +20,7 @@
  */
 
 #include <lsp-plug.in/plug-fw/meta/ports.h>
+#include <lsp-plug.in/plug-fw/meta/registry.h>
 #include <lsp-plug.in/shared/meta/developers.h>
 #include <private/meta/mb_ringmod_sc.h>
 
@@ -270,6 +271,7 @@ namespace lsp
             mono_plugin_port_groups,
             &mb_ringmod_sc_bundle
         };
+        LSP_REGISTER_METADATA(mb_ringmod_sc_mono);
 
         const plugin_t mb_ringmod_sc_stereo =
         {
@@ -300,6 +302,8 @@ namespace lsp
             stereo_plugin_port_groups,
             &mb_ringmod_sc_bundle
         };
+        LSP_REGISTER_METADATA(mb_ringmod_sc_stereo);
+
     } /* namespace meta */
 } /* namespace lsp */
 
