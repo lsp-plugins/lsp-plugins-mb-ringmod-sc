@@ -236,7 +236,7 @@ namespace lsp
         const meta::bundle_t mb_ringmod_sc_bundle =
         {
             "mb_ringmod_sc",
-            "Ring Modulated Sidechain",
+            "Multiband Ring Modulated Sidechain",
             B_UTILITIES,
             "q5XMbkfR_5s",
             "This plugin allows to apply a specific multiband sidechaining technique based on\nring modulation and subtraction of the original signal."
