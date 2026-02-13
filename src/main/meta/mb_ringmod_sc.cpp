@@ -266,7 +266,7 @@ namespace lsp
             clap_features_mono,
             E_DUMP_STATE | E_INLINE_DISPLAY,
             mb_ringmod_sc_mono_ports,
-            "utils/mb_ringmod_sc.xml",
+            "plugins/utils/mb_ringmod_sc.xml",
             NULL,
             mono_plugin_port_groups,
             &mb_ringmod_sc_bundle
@@ -297,7 +297,7 @@ namespace lsp
             clap_features_stereo,
             E_DUMP_STATE | E_INLINE_DISPLAY,
             mb_ringmod_sc_stereo_ports,
-            "utils/mb_ringmod_sc.xml",
+            "plugins/utils/mb_ringmod_sc.xml",
             NULL,
             stereo_plugin_port_groups,
             &mb_ringmod_sc_bundle
