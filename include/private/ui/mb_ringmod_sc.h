@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2025 Linux Studio Plugins Project <https://lsp-plug.in/>
- *           (C) 2025 Vladimir Sadovnikov <sadko4u@gmail.com>
+ * Copyright (C) 2026 Linux Studio Plugins Project <https://lsp-plug.in/>
+ *           (C) 2026 Vladimir Sadovnikov <sadko4u@gmail.com>
  *
  * This file is part of lsp-plugins-mb-ringmod-sc
  * Created on: 20 сент. 2025 г.
@@ -72,7 +72,12 @@ namespace lsp
 
             public:
                 explicit mb_ringmod_sc_ui(const meta::plugin_t *meta);
+                mb_ringmod_sc_ui(const mb_ringmod_sc_ui &) = delete;
+                mb_ringmod_sc_ui(mb_ringmod_sc_ui &&) = delete;
                 virtual ~mb_ringmod_sc_ui() override;
+
+                mb_ringmod_sc_ui & operator = (const mb_ringmod_sc_ui &) = delete;
+                mb_ringmod_sc_ui & operator = (mb_ringmod_sc_ui &&) = delete;
 
             public: // ui::Module
                 virtual status_t    post_init() override;

@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2025 Linux Studio Plugins Project <https://lsp-plug.in/>
- *           (C) 2025 Vladimir Sadovnikov <sadko4u@gmail.com>
+ * Copyright (C) 2026 Linux Studio Plugins Project <https://lsp-plug.in/>
+ *           (C) 2026 Vladimir Sadovnikov <sadko4u@gmail.com>
  *
  * This file is part of lsp-plugins-mb-ringmod-sc
  * Created on: 08 сен 2025 г.
@@ -20,12 +20,13 @@
  */
 
 #include <lsp-plug.in/plug-fw/meta/ports.h>
+#include <lsp-plug.in/plug-fw/meta/registry.h>
 #include <lsp-plug.in/shared/meta/developers.h>
 #include <private/meta/mb_ringmod_sc.h>
 
 #define LSP_PLUGINS_MB_RINGMOD_SC_VERSION_MAJOR         1
 #define LSP_PLUGINS_MB_RINGMOD_SC_VERSION_MINOR         0
-#define LSP_PLUGINS_MB_RINGMOD_SC_VERSION_MICRO         2
+#define LSP_PLUGINS_MB_RINGMOD_SC_VERSION_MICRO         3
 
 #define LSP_PLUGINS_MB_RINGMOD_SC_VERSION  \
     LSP_MODULE_VERSION( \
@@ -235,7 +236,7 @@ namespace lsp
         const meta::bundle_t mb_ringmod_sc_bundle =
         {
             "mb_ringmod_sc",
-            "Ring Modulated Sidechain",
+            "Multiband Ring Modulated Sidechain",
             B_UTILITIES,
             "q5XMbkfR_5s",
             "This plugin allows to apply a specific multiband sidechaining technique based on\nring modulation and subtraction of the original signal."
@@ -265,11 +266,13 @@ namespace lsp
             clap_features_mono,
             E_DUMP_STATE | E_INLINE_DISPLAY,
             mb_ringmod_sc_mono_ports,
-            "utils/mb_ringmod_sc.xml",
+            "plugins/utils/mb_ringmod_sc.xml",
             NULL,
             mono_plugin_port_groups,
-            &mb_ringmod_sc_bundle
+            &mb_ringmod_sc_bundle,
+            2
         };
+        LSP_REGISTER_METADATA(mb_ringmod_sc_mono);
 
         const plugin_t mb_ringmod_sc_stereo =
         {
@@ -295,13 +298,13 @@ namespace lsp
             clap_features_stereo,
             E_DUMP_STATE | E_INLINE_DISPLAY,
             mb_ringmod_sc_stereo_ports,
-            "utils/mb_ringmod_sc.xml",
+            "plugins/utils/mb_ringmod_sc.xml",
             NULL,
             stereo_plugin_port_groups,
-            &mb_ringmod_sc_bundle
+            &mb_ringmod_sc_bundle,
+            1
         };
+        LSP_REGISTER_METADATA(mb_ringmod_sc_stereo);
+
     } /* namespace meta */
 } /* namespace lsp */
-
-
-
