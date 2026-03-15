@@ -555,7 +555,7 @@ namespace lsp
             b->fFreqStart           = 0.0f;
             plan[plan_size++]       = b;
 
-            for (size_t i=1; i<meta::mb_ringmod_sc::BANDS_MAX-1; ++i)
+            for (size_t i=1; i<meta::mb_ringmod_sc::BANDS_MAX; ++i)
             {
                 split_t *s              = &vSplits[i-1];
                 b                       = &vBands[i];

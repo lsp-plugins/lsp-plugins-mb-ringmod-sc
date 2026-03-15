@@ -3,7 +3,7 @@
 *******************************************************************************
 
 === 1.0.4 ===
-
+* Fixed non-working properly 8th band of crossover.
 
 === 1.0.3 ===
 * Updated build scripts and dependencies.
