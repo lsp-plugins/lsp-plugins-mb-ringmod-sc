@@ -642,7 +642,7 @@ namespace lsp
             const uint32_t old_mode = nMode;
 
             nType                   = pType->value();
-            nSource                 = (pSource != NULL) ? pSource->value() : SC_SRC_LEFT_RIGHT;
+            nSource                 = (pSource != NULL) ? uint32_t(pSource->value()) : uint32_t(SC_SRC_LEFT_RIGHT);
             nMode                   = pMode->value();
             bActive                 = pActive->value() >= 0.5f;
             bInvert                 = pInvert->value() >= 0.5f;
