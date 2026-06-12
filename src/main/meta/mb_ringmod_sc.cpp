@@ -26,7 +26,7 @@
 
 #define LSP_PLUGINS_MB_RINGMOD_SC_VERSION_MAJOR         1
 #define LSP_PLUGINS_MB_RINGMOD_SC_VERSION_MINOR         0
-#define LSP_PLUGINS_MB_RINGMOD_SC_VERSION_MICRO         4
+#define LSP_PLUGINS_MB_RINGMOD_SC_VERSION_MICRO         5
 
 #define LSP_PLUGINS_MB_RINGMOD_SC_VERSION  \
     LSP_MODULE_VERSION( \
@@ -178,13 +178,13 @@ namespace lsp
 
             RMOD_METER_BUTTONS("", "", ""),
 
-            RMOD_SPLIT("_1", " 1", 0.0f, 40.0f),
-            RMOD_SPLIT("_2", " 2", 1.0f, 100.0f),
-            RMOD_SPLIT("_3", " 3", 0.0f, 252.0f),
-            RMOD_SPLIT("_4", " 4", 1.0f, 632.0f),
-            RMOD_SPLIT("_5", " 5", 0.0f, 1587.0f),
-            RMOD_SPLIT("_6", " 6", 1.0f, 3984.0f),
-            RMOD_SPLIT("_7", " 7", 0.0f, 10000.0f),
+            RMOD_SPLIT("_1", " 2", 0.0f, 40.0f),
+            RMOD_SPLIT("_2", " 3", 1.0f, 100.0f),
+            RMOD_SPLIT("_3", " 4", 0.0f, 252.0f),
+            RMOD_SPLIT("_4", " 5", 1.0f, 632.0f),
+            RMOD_SPLIT("_5", " 6", 0.0f, 1587.0f),
+            RMOD_SPLIT("_6", " 7", 1.0f, 3984.0f),
+            RMOD_SPLIT("_7", " 8", 0.0f, 10000.0f),
 
             RMOD_BAND_MONO("_1", " 1", " 1"),
             RMOD_BAND_MONO("_2", " 2", " 2"),
@@ -209,13 +209,13 @@ namespace lsp
             RMOD_METER_BUTTONS("_l", " Left", " L"),
             RMOD_METER_BUTTONS("_r", " Right", " R"),
 
-            RMOD_SPLIT("_1", " 1", 0.0f, 40.0f),
-            RMOD_SPLIT("_2", " 2", 1.0f, 100.0f),
-            RMOD_SPLIT("_3", " 3", 0.0f, 252.0f),
-            RMOD_SPLIT("_4", " 4", 1.0f, 632.0f),
-            RMOD_SPLIT("_5", " 5", 0.0f, 1587.0f),
-            RMOD_SPLIT("_6", " 6", 1.0f, 3984.0f),
-            RMOD_SPLIT("_7", " 7", 0.0f, 10000.0f),
+            RMOD_SPLIT("_1", " 2", 0.0f, 40.0f),
+            RMOD_SPLIT("_2", " 3", 1.0f, 100.0f),
+            RMOD_SPLIT("_3", " 4", 0.0f, 252.0f),
+            RMOD_SPLIT("_4", " 5", 1.0f, 632.0f),
+            RMOD_SPLIT("_5", " 6", 0.0f, 1587.0f),
+            RMOD_SPLIT("_6", " 7", 1.0f, 3984.0f),
+            RMOD_SPLIT("_7", " 8", 0.0f, 10000.0f),
 
             RMOD_BAND_STEREO("_1", " 1", " 1", 100.0f),
             RMOD_BAND_STEREO("_2", " 2", " 2", 85.0f),

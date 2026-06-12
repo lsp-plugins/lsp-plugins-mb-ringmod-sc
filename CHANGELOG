@@ -2,6 +2,10 @@
 * RECENT CHANGES
 *******************************************************************************
 
+=== 1.0.5 ===
+* Renamed split labels to start numbering with 2.
+* Updated build scripts and dependencies.
+
 === 1.0.4 ===
 * Fixed non-working properly 8th band of crossover.
 * Updated build scripts and dependencies.
