@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2025 Linux Studio Plugins Project <https://lsp-plug.in/>
- *           (C) 2025 Vladimir Sadovnikov <sadko4u@gmail.com>
+ * Copyright (C) 2026 Linux Studio Plugins Project <https://lsp-plug.in/>
+ *           (C) 2026 Vladimir Sadovnikov <sadko4u@gmail.com>
  *
  * This file is part of lsp-plugins-mb-ringmod-sc
  * Created on: 08 сен 2025 г.
@@ -864,11 +864,14 @@ namespace lsp
 
         void mb_ringmod_sc::premix_channels(size_t samples)
         {
+            const float g_in2link   = sPremix.fInToLink * fInGain;
+            const float g_in2sc     = sPremix.fInToSc * fInGain;
+
             for (size_t i=0; i<nChannels; ++i)
             {
                 channel_t * const c = &vChannels[i];
 
-                // Get pointers to buffers and advance position
+                // Get pointers to buffers
                 float * const in_buf    = c->vIn;
                 float * const sc_buf    = c->vSc;
                 float * const link_buf  = c->vLink;
@@ -879,69 +882,87 @@ namespace lsp
                 c->vLinkPtr             = link_buf;
                 c->vOutPtr              = out_buf;
 
-                // Update pointers
-                c->vIn                 += samples;
-                c->vSc                 += samples;
-                c->vLink                = (c->vLink != NULL) ? c->vLink + samples : NULL;
-                c->vOut                += samples;
-
                 // Perform transformation
                 // (Sc, Link) -> In
-                if ((sc_buf != NULL) && (sPremix.fScToIn > GAIN_AMP_M_INF_DB))
+                if (sPremix.fScToIn > GAIN_AMP_M_INF_DB)
                 {
-                    c->vInPtr               = c->vTmpIn;
-                    dsp::fmadd_k4(c->vInPtr, in_buf, sc_buf, sPremix.fScToIn, samples);
+                    c->vInPtr           = c->vTmpIn;
+                    if (fInGain <= GAIN_AMP_M_INF_DB)
+                        dsp::mul_k3(c->vInPtr, sc_buf, sPremix.fScToIn, samples);
+                    else if (fInGain != GAIN_AMP_0_DB)
+                        dsp::mix_copy2(c->vInPtr, in_buf, sc_buf, fInGain, sPremix.fScToIn, samples);
+                    else
+                        dsp::fmadd_k4(c->vInPtr, in_buf, sc_buf, sPremix.fScToIn, samples);
 
                     if ((link_buf != NULL) && (sPremix.fLinkToIn > GAIN_AMP_M_INF_DB))
                         dsp::fmadd_k3(c->vInPtr, link_buf, sPremix.fLinkToIn, samples);
                 }
                 else if ((link_buf != NULL) && (sPremix.fLinkToIn > GAIN_AMP_M_INF_DB))
                 {
-                    c->vInPtr               = c->vTmpIn;
-                    dsp::fmadd_k4(c->vInPtr, in_buf, link_buf, sPremix.fLinkToIn, samples);
+                    c->vInPtr           = c->vTmpIn;
+                    if (fInGain <= GAIN_AMP_M_INF_DB)
+                        dsp::mul_k3(c->vInPtr, link_buf, sPremix.fLinkToIn, samples);
+                    else if (fInGain != GAIN_AMP_0_DB)
+                        dsp::mix_copy2(c->vInPtr, in_buf, link_buf, fInGain, sPremix.fLinkToIn, samples);
+                    else
+                        dsp::fmadd_k4(c->vInPtr, in_buf, link_buf, sPremix.fLinkToIn, samples);
+                }
+                else if (fInGain != GAIN_AMP_0_DB)
+                {
+                    c->vInPtr           = c->vTmpIn;
+                    dsp::mul_k3(c->vInPtr, in_buf, fInGain, samples);
                 }
 
                 // (In, Link) -> Sc
-                if (sPremix.fInToSc > GAIN_AMP_M_INF_DB)
+                if (g_in2sc > GAIN_AMP_M_INF_DB)
                 {
-                    c->vScPtr               = c->vTmpSc;
-                    if (sc_buf != NULL)
-                        dsp::fmadd_k4(c->vScPtr, sc_buf, in_buf, sPremix.fInToSc, samples);
-                    else
-                        dsp::mul_k3(c->vScPtr, in_buf, sPremix.fInToSc, samples);
+                    c->vScPtr           = c->vTmpSc;
+                    dsp::fmadd_k4(c->vScPtr, sc_buf, in_buf, g_in2sc, samples);
 
                     if ((link_buf != NULL) && (sPremix.fLinkToSc > GAIN_AMP_M_INF_DB))
                         dsp::fmadd_k3(c->vScPtr, link_buf, sPremix.fLinkToSc, samples);
                 }
                 else if ((link_buf != NULL) && (sPremix.fLinkToSc > GAIN_AMP_M_INF_DB))
                 {
-                    c->vScPtr               = c->vTmpSc;
-                    if (sc_buf != NULL)
-                        dsp::fmadd_k4(c->vScPtr, sc_buf, link_buf, sPremix.fLinkToSc, samples);
-                    else
-                        dsp::mul_k3(c->vScPtr, link_buf, sPremix.fLinkToSc, samples);
+                    c->vScPtr           = c->vTmpSc;
+                    dsp::fmadd_k4(c->vScPtr, sc_buf, link_buf, sPremix.fLinkToSc, samples);
                 }
 
                 // (In, Sc) -> Link
-                if (sPremix.fInToLink > GAIN_AMP_M_INF_DB)
+                if (g_in2link > GAIN_AMP_M_INF_DB)
                 {
-                    c->vLinkPtr             = c->vTmpLink;
+                    c->vLinkPtr         = c->vTmpLink;
                     if (link_buf != NULL)
-                        dsp::fmadd_k4(c->vLinkPtr, link_buf, in_buf, sPremix.fInToLink, samples);
+                        dsp::fmadd_k4(c->vLinkPtr, link_buf, in_buf, g_in2link, samples);
                     else
-                        dsp::mul_k3(c->vLinkPtr, in_buf, sPremix.fInToLink, samples);
+                        dsp::mul_k3(c->vLinkPtr, in_buf, g_in2link, samples);
 
-                    if ((sc_buf != NULL) && (sPremix.fScToLink > GAIN_AMP_M_INF_DB))
+                    if (sPremix.fScToLink > GAIN_AMP_M_INF_DB)
                         dsp::fmadd_k3(c->vLinkPtr, sc_buf, sPremix.fScToLink, samples);
                 }
-                else if ((sc_buf != NULL) && (sPremix.fScToLink > GAIN_AMP_M_INF_DB))
+                else if (sPremix.fScToLink > GAIN_AMP_M_INF_DB)
                 {
-                    c->vLinkPtr             = c->vTmpLink;
+                    c->vLinkPtr         = c->vTmpLink;
                     if (link_buf != NULL)
                         dsp::fmadd_k4(c->vLinkPtr, link_buf, sc_buf, sPremix.fScToLink, samples);
                     else
                         dsp::mul_k3(c->vLinkPtr, sc_buf, sPremix.fScToLink, samples);
                 }
+            }
+        }
+
+        void mb_ringmod_sc::advance_premix(size_t samples)
+        {
+            // Update pointers
+            for (size_t i=0; i<nChannels; ++i)
+            {
+                channel_t * const c = &vChannels[i];
+
+                // Update pointers
+                c->vIn                 += samples;
+                c->vSc                 += samples;
+                c->vLink                = (c->vLink != NULL) ? c->vLink + samples : NULL;
+                c->vOut                += samples;
             }
         }
 
@@ -1240,7 +1261,7 @@ namespace lsp
                 }
 
                 // Now c->vDataOut contains processed signal, apply bypass
-                c->sDryDelay.process(c->vTmpIn, c->vTmpIn, samples);
+                c->sDryDelay.process(c->vTmpIn, c->vIn, samples);
                 c->sBypass.process(c->vOutPtr, c->vTmpIn, c->vDataOut, samples);
             }
 
@@ -1285,7 +1306,8 @@ namespace lsp
                 process_sidechain_envelope(to_process);
                 process_signal(to_process);
 
-                // Updte offset
+                // Update offset
+                advance_premix(to_process);
                 offset                     += to_process;
             }
 
