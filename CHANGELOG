@@ -2,6 +2,9 @@
 * RECENT CHANGES
 *******************************************************************************
 
+=== 1.0.8 ===
+
+
 === 1.0.7 ===
 * The Input Gain knob now controls the gain of input signal only and does not
   affect the level of external sidechain or shared memory link.
