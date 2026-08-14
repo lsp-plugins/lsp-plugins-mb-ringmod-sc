@@ -255,6 +255,7 @@ namespace lsp
                 void                do_destroy();
                 void                update_premix();
                 void                premix_channels(size_t samples);
+                void                advance_premix(size_t samples);
                 void                process_sidechain_type(size_t samples);
                 void                process_sidechain_envelope(size_t samples);
                 void                process_signal(size_t samples);
