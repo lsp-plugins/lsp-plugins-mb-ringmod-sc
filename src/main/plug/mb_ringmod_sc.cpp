@@ -663,7 +663,6 @@ namespace lsp
             }
 
             // Update analyzer parameters
-            bool has_active_channels = false;
             for (size_t i=0; i<nChannels; ++i)
             {
                 channel_t * const c = &vChannels[i];
@@ -673,15 +672,12 @@ namespace lsp
                     const bool fft  = c->pFft[j]->value() >= 0.5f;
                     c->bFft[j]      = fft;
                     sAnalyzer.enable_channel(i*MTR_TOTAL + j, fft);
-                    if (fft)
-                        has_active_channels     = true;
                 }
             }
 
             sAnalyzer.set_reactivity(pReactivity->value());
             if (pShift != NULL)
                 sAnalyzer.set_shift(pShift->value() * 100.0f);
-            sAnalyzer.set_activity(has_active_channels > 0);
 
             // Update analyzer
             if (sAnalyzer.needs_reconfiguration())
@@ -859,6 +855,13 @@ namespace lsp
 
         void mb_ringmod_sc::ui_activated()
         {
+            sAnalyzer.set_activity(true);
+            bSyncFilters        = true;
+        }
+
+        void mb_ringmod_sc::ui_deactivated()
+        {
+            sAnalyzer.set_activity(false);
             bSyncFilters        = true;
         }
 
