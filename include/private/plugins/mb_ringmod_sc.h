@@ -26,7 +26,7 @@
 #include <lsp-plug.in/dsp-units/util/Analyzer.h>
 #include <lsp-plug.in/dsp-units/util/Crossover.h>
 #include <lsp-plug.in/dsp-units/util/Delay.h>
-#include <lsp-plug.in/dsp-units/util/FFTCrossover.h>
+#include <lsp-plug.in/dsp-units/util/LPCrossover.h>
 #include <lsp-plug.in/dsp-units/util/RingBuffer.h>
 #include <lsp-plug.in/dsp-units/ctl/Bypass.h>
 #include <lsp-plug.in/plug-fw/core/IDBuffer.h>
@@ -153,8 +153,8 @@ namespace lsp
                     dspu::Delay         sDryDelay;              // Delay for dry (unprocessed) signal
                     dspu::Crossover     sCrossover;             // Crossover
                     dspu::Crossover     sScCrossover;           // Sidechain Crossover
-                    dspu::FFTCrossover  sFFTCrossover;          // FFT crossover
-                    dspu::FFTCrossover  sFFTScCrossover;        // Sidechain FFT crossover
+                    dspu::LPCrossover   sLPCrossover;           // Linear phase crossover
+                    dspu::LPCrossover   sLPScCrossover;         // Sidechain Linear phase crossover
                     ch_band_t           vBands[meta::mb_ringmod_sc::BANDS_MAX]; // Band processors
 
                     float              *vIn;                    // Plugin input buffer pointer
