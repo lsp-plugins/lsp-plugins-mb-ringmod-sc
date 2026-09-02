@@ -4,6 +4,7 @@
 
 === 1.0.9 ===
 * Optimized CPU consumption: FFT analysis is not performed when UI is not active.
+* Added support of 6 dB/octave and 18 dB/octave filters in the crossover.
 
 === 1.0.8 ===
 * Updated build scripts and dependencies.

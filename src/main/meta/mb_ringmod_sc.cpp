@@ -49,32 +49,34 @@ namespace lsp
 
         static const port_item_t ringmod_sc_sources[] =
         {
-            { "Left/Right",     "sidechain.left_right"      },
-            { "Right/Left",     "sidechain.right_left"      },
-            { "Left",           "sidechain.left"            },
-            { "Right",          "sidechain.right"           },
-            { "Mid/Side",       "sidechain.mid_side"        },
-            { "Side/Mid",       "sidechain.side_mid"        },
-            { "Middle",         "sidechain.middle"          },
-            { "Side",           "sidechain.side"            },
-            { "Min",            "sidechain.min"             },
-            { "Max",            "sidechain.max"             },
+            { "Left/Right",     "sidechain.left_right"          },
+            { "Right/Left",     "sidechain.right_left"          },
+            { "Left",           "sidechain.left"                },
+            { "Right",          "sidechain.right"               },
+            { "Mid/Side",       "sidechain.mid_side"            },
+            { "Side/Mid",       "sidechain.side_mid"            },
+            { "Middle",         "sidechain.middle"              },
+            { "Side",           "sidechain.side"                },
+            { "Min",            "sidechain.min"                 },
+            { "Max",            "sidechain.max"                 },
             { NULL, NULL }
         };
 
         static const port_item_t mb_ringmod_sc_modes[] =
         {
-            { "Classic",        "multiband.classic"         },
-            { "Linear Phase",   "multiband.linear_phase"    },
+            { "Classic",        "multiband.classic"             },
+            { "Linear Phase",   "multiband.linear_phase"        },
             { NULL, NULL }
         };
 
         static const port_item_t mb_ringmod_sc_slopes[] =
         {
-            { "12 dB/oct",      "eq.slope.12dbo"            },
-            { "24 dB/oct",      "eq.slope.24dbo"            },
-            { "48 dB/oct",      "eq.slope.48dbo"            },
-            { "72 dB/oct",      "eq.slope.72dbo"            },
+            { "12 dB/oct",      "eq.slope.12dbo",           1   },
+            { "24 dB/oct",      "eq.slope.24dbo",           3   },
+            { "48 dB/oct",      "eq.slope.48dbo",           4   },
+            { "72 dB/oct",      "eq.slope.72dbo",           5   },
+            { "6 dB/oct",       "eq.slope.6dbo",            0   },
+            { "18 dB/oct",      "eq.slope.18dbo",           2   },
             { NULL, NULL }
         };
 
@@ -89,7 +91,7 @@ namespace lsp
         SWITCH("invert", "Invert sidechain processing", "Invert", 0), \
         COMBO("type", "Sidechain type", "Type", 1, ringmod_sc_types), \
         COMBO("mode", "Crossover mode", "Mode", 0, mb_ringmod_sc_modes), \
-        COMBO("slope", "Crossover slope", "Slope", 2, mb_ringmod_sc_slopes), \
+        COMBO_SORTED("slope", "Crossover slope", "Slope", mb_ringmod_sc::SLOPE_DFL, mb_ringmod_sc_slopes), \
         SWITCH("showmx", "Show mix overlay", "Show mix bar", 0.0f), \
         AMP_GAIN10("dry", "Dry gain", "Dry", GAIN_AMP_M_INF_DB), \
         AMP_GAIN10("wet", "Wet gain", "Wet", GAIN_AMP_0_DB), \

@@ -603,10 +603,12 @@ namespace lsp
         {
             switch (slope)
             {
-                case 0: return dspu::CROSS_SLOPE_LR2;
-                case 1: return dspu::CROSS_SLOPE_LR4;
-                case 2: return dspu::CROSS_SLOPE_LR8;
-                case 3: return dspu::CROSS_SLOPE_LR12;
+                case meta::mb_ringmod_sc::SLOPE_6DBO:   return dspu::CROSS_SLOPE_6DBO;
+                case meta::mb_ringmod_sc::SLOPE_12DBO:  return dspu::CROSS_SLOPE_12DBO;
+                case meta::mb_ringmod_sc::SLOPE_18DBO:  return dspu::CROSS_SLOPE_18DBO;
+                case meta::mb_ringmod_sc::SLOPE_24DBO:  return dspu::CROSS_SLOPE_24DBO;
+                case meta::mb_ringmod_sc::SLOPE_48DBO:  return dspu::CROSS_SLOPE_48DBO;
+                case meta::mb_ringmod_sc::SLOPE_72DBO:  return dspu::CROSS_SLOPE_72DBO;
                 default: break;
             }
             return dspu::CROSS_SLOPE_OFF;
@@ -616,10 +618,12 @@ namespace lsp
         {
             switch (slope)
             {
-                case 0: return -12.0f;
-                case 1: return -24.0f;
-                case 2: return -48.0f;
-                case 3: return -72.0f;
+                case meta::mb_ringmod_sc::SLOPE_6DBO:   return -6.0f;
+                case meta::mb_ringmod_sc::SLOPE_12DBO:  return -12.0f;
+                case meta::mb_ringmod_sc::SLOPE_18DBO:  return -18.0f;
+                case meta::mb_ringmod_sc::SLOPE_24DBO:  return -24.0f;
+                case meta::mb_ringmod_sc::SLOPE_48DBO:  return -48.0f;
+                case meta::mb_ringmod_sc::SLOPE_72DBO:  return -72.0f;
                 default: break;
             }
             return 0.0f;
