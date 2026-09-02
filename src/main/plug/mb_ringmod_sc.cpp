@@ -195,7 +195,7 @@ namespace lsp
                                       szof_fft + // vFreqs
                                       szof_ifft + // vIndices
                                       meta::mb_ringmod_sc::BANDS_MAX * ( // band_t
-                                          szof_fft // vTr
+                                          szof_fft*2 // vTr
                                       ) +
                                       nChannels * ( // channel_t::
                                           szof_buf * 3 + // vTmpIn, vTmpLink, vTmpSc
@@ -235,7 +235,7 @@ namespace lsp
             for (size_t i=0; i < meta::mb_ringmod_sc::BANDS_MAX; ++i)
             {
                 band_t * const b        = &vBands[i];
-                b->vTr                  = advance_ptr_bytes<float>(ptr, szof_fft);
+                b->vTr                  = advance_ptr_bytes<float>(ptr, szof_fft * 2);
             }
 
             for (size_t i=0; i < nChannels; ++i)
@@ -258,7 +258,7 @@ namespace lsp
 
                 for (size_t j=0; j<meta::mb_ringmod_sc::BANDS_MAX; ++j)
                 {
-                    ch_band_t *cb   = &c->vBands[j];
+                    ch_band_t * const cb    = &c->vBands[j];
 
                     cb->sEnvDelay.construct();
 
@@ -773,10 +773,7 @@ namespace lsp
                     if (b->bActive)
                     {
                         if (nMode == MODE_IIR)
-                        {
-                            c->sCrossover.freq_chart(i, vBuffer, vFreqs, meta::mb_ringmod_sc::FFT_MESH_POINTS);
-                            dsp::pcomplex_mod(b->vTr, vBuffer, meta::mb_ringmod_sc::FFT_MESH_POINTS);
-                        }
+                            c->sCrossover.freq_chart(i, b->vTr, vFreqs, meta::mb_ringmod_sc::FFT_MESH_POINTS);
                         else
                             c->sLPCrossover.freq_chart(i, b->vTr, vFreqs, meta::mb_ringmod_sc::FFT_MESH_POINTS);
                     }
@@ -1356,25 +1353,51 @@ namespace lsp
                 size_t emitted      = 0;
                 channel_t * const c = &vChannels[i];
 
-                // Output gain
-                for (size_t j=0; j<meta::mb_ringmod_sc::BANDS_MAX; ++j)
+                // Compute the output gain curve
+                if (nMode == MODE_IIR)
                 {
-                    band_t * const b    = &vBands[j];
-                    if (!b->bActive)
-                        continue;
-                    if (b->bMute)
-                        continue;
+                    for (size_t j=0; j<meta::mb_ringmod_sc::BANDS_MAX; ++j)
+                    {
+                        band_t * const b    = &vBands[j];
+                        if (!b->bActive)
+                            continue;
+                        if (b->bMute)
+                            continue;
 
-                    ch_band_t * const cb= &c->vBands[j];
-                    if ((emitted++) > 0)
-                        dsp::fmadd_k3(c->vGain, b->vTr, cb->fReduction, meta::mb_ringmod_sc::FFT_MESH_POINTS);
+                        ch_band_t * const cb= &c->vBands[j];
+                        if ((emitted++) > 0)
+                            dsp::fmadd_k3(vBuffer, b->vTr, cb->fReduction, meta::mb_ringmod_sc::FFT_MESH_POINTS * 2);
+                        else
+                            dsp::mul_k3(vBuffer, b->vTr, cb->fReduction, meta::mb_ringmod_sc::FFT_MESH_POINTS * 2);
+                    }
+
+                    // Clear if there was no data at the input
+                    if (emitted > 0)
+                        dsp::pcomplex_mod(c->vGain, vBuffer, meta::mb_ringmod_sc::FFT_MESH_POINTS);
                     else
-                        dsp::mul_k3(c->vGain, b->vTr, cb->fReduction, meta::mb_ringmod_sc::FFT_MESH_POINTS);
+                        dsp::fill_zero(c->vGain, meta::mb_ringmod_sc::FFT_MESH_POINTS);
                 }
+                else
+                {
+                    for (size_t j=0; j<meta::mb_ringmod_sc::BANDS_MAX; ++j)
+                    {
+                        band_t * const b    = &vBands[j];
+                        if (!b->bActive)
+                            continue;
+                        if (b->bMute)
+                            continue;
 
-                // Clear if there was no data at the input
-                if (emitted <= 0)
-                    dsp::fill_zero(c->vGain, meta::mb_ringmod_sc::FFT_MESH_POINTS);
+                        ch_band_t * const cb= &c->vBands[j];
+                        if ((emitted++) > 0)
+                            dsp::fmadd_k3(c->vGain, b->vTr, cb->fReduction, meta::mb_ringmod_sc::FFT_MESH_POINTS);
+                        else
+                            dsp::mul_k3(c->vGain, b->vTr, cb->fReduction, meta::mb_ringmod_sc::FFT_MESH_POINTS);
+                    }
+
+                    // Clear if there was no data at the input
+                    if (emitted <= 0)
+                        dsp::fill_zero(c->vGain, meta::mb_ringmod_sc::FFT_MESH_POINTS);
+                }
             }
 
             // Request for redraw
@@ -1405,7 +1428,10 @@ namespace lsp
                     v                   = mesh->pvData[index++];
                     band_t * const b    = &vBands[i];
 
-                    dsp::copy(&v[2], b->vTr, meta::mb_ringmod_sc::FFT_MESH_POINTS);
+                    if (nMode == MODE_IIR)
+                        dsp::pcomplex_mod(&v[2], b->vTr, meta::mb_ringmod_sc::FFT_MESH_POINTS);
+                    else
+                        dsp::copy(&v[2], b->vTr, meta::mb_ringmod_sc::FFT_MESH_POINTS);
 
                     v[0]                = GAIN_AMP_M_INF_DB;
                     v[1]                = v[2];
