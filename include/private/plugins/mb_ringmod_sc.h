@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2025 Linux Studio Plugins Project <https://lsp-plug.in/>
- *           (C) 2025 Vladimir Sadovnikov <sadko4u@gmail.com>
+ * Copyright (C) 2026 Linux Studio Plugins Project <https://lsp-plug.in/>
+ *           (C) 2026 Vladimir Sadovnikov <sadko4u@gmail.com>
  *
  * This file is part of lsp-plugins-mb-ringmod-sc
  * Created on: 08 сен 2025 г.
@@ -26,7 +26,7 @@
 #include <lsp-plug.in/dsp-units/util/Analyzer.h>
 #include <lsp-plug.in/dsp-units/util/Crossover.h>
 #include <lsp-plug.in/dsp-units/util/Delay.h>
-#include <lsp-plug.in/dsp-units/util/FFTCrossover.h>
+#include <lsp-plug.in/dsp-units/util/LPCrossover.h>
 #include <lsp-plug.in/dsp-units/util/RingBuffer.h>
 #include <lsp-plug.in/dsp-units/ctl/Bypass.h>
 #include <lsp-plug.in/plug-fw/core/IDBuffer.h>
@@ -153,8 +153,8 @@ namespace lsp
                     dspu::Delay         sDryDelay;              // Delay for dry (unprocessed) signal
                     dspu::Crossover     sCrossover;             // Crossover
                     dspu::Crossover     sScCrossover;           // Sidechain Crossover
-                    dspu::FFTCrossover  sFFTCrossover;          // FFT crossover
-                    dspu::FFTCrossover  sFFTScCrossover;        // Sidechain FFT crossover
+                    dspu::LPCrossover   sLPCrossover;           // Linear phase crossover
+                    dspu::LPCrossover   sLPScCrossover;         // Sidechain Linear phase crossover
                     ch_band_t           vBands[meta::mb_ringmod_sc::BANDS_MAX]; // Band processors
 
                     float              *vIn;                    // Plugin input buffer pointer
@@ -280,6 +280,7 @@ namespace lsp
                 virtual void        update_sample_rate(long sr) override;
                 virtual void        update_settings() override;
                 virtual void        ui_activated() override;
+                virtual void        ui_deactivated() override;
                 virtual void        process(size_t samples) override;
                 virtual bool        inline_display(plug::ICanvas *cv, size_t width, size_t height) override;
                 virtual void        dump(dspu::IStateDumper *v) const override;

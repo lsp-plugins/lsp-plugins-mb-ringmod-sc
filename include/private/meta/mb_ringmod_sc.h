@@ -88,6 +88,19 @@ namespace lsp
             static constexpr float  OUT_FREQ_DFL        = 1000.0f;
             static constexpr float  OUT_FREQ_STEP       = 0.002f;
 
+            enum slope_t
+            {
+                SLOPE_12DBO,
+                SLOPE_24DBO,
+                SLOPE_48DBO,
+                SLOPE_72DBO,
+
+                SLOPE_6DBO,
+                SLOPE_18DBO,
+
+                SLOPE_DFL       = SLOPE_48DBO
+            };
+
         } mb_ringmod_sc;
 
         // Plugin type metadata

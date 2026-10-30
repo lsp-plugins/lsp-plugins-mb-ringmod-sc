@@ -195,7 +195,7 @@ namespace lsp
                                       szof_fft + // vFreqs
                                       szof_ifft + // vIndices
                                       meta::mb_ringmod_sc::BANDS_MAX * ( // band_t
-                                          szof_fft // vTr
+                                          szof_fft*2 // vTr
                                       ) +
                                       nChannels * ( // channel_t::
                                           szof_buf * 3 + // vTmpIn, vTmpLink, vTmpSc
@@ -235,7 +235,7 @@ namespace lsp
             for (size_t i=0; i < meta::mb_ringmod_sc::BANDS_MAX; ++i)
             {
                 band_t * const b        = &vBands[i];
-                b->vTr                  = advance_ptr_bytes<float>(ptr, szof_fft);
+                b->vTr                  = advance_ptr_bytes<float>(ptr, szof_fft * 2);
             }
 
             for (size_t i=0; i < nChannels; ++i)
@@ -248,8 +248,8 @@ namespace lsp
                 c->sDryDelay.construct();
                 c->sCrossover.construct();
                 c->sScCrossover.construct();
-                c->sFFTCrossover.construct();
-                c->sFFTScCrossover.construct();
+                c->sLPCrossover.construct();
+                c->sLPScCrossover.construct();
 
                 if (!c->sCrossover.init(meta::mb_ringmod_sc::BANDS_MAX, BUFFER_SIZE))
                     return;
@@ -258,7 +258,7 @@ namespace lsp
 
                 for (size_t j=0; j<meta::mb_ringmod_sc::BANDS_MAX; ++j)
                 {
-                    ch_band_t *cb   = &c->vBands[j];
+                    ch_band_t * const cb    = &c->vBands[j];
 
                     cb->sEnvDelay.construct();
 
@@ -442,8 +442,8 @@ namespace lsp
                     c->sDryDelay.destroy();
                     c->sCrossover.destroy();
                     c->sScCrossover.destroy();
-                    c->sFFTCrossover.destroy();
-                    c->sFFTScCrossover.destroy();
+                    c->sLPCrossover.destroy();
+                    c->sLPScCrossover.destroy();
 
                     for (size_t j=0; j<meta::mb_ringmod_sc::BANDS_MAX; ++j)
                     {
@@ -494,7 +494,21 @@ namespace lsp
             // Update channels
             for (size_t i=0; i<nChannels; ++i)
             {
-                channel_t *c = &vChannels[i];
+                channel_t * const c = &vChannels[i];
+
+                // Need to re-initialize FFT crossovers?
+                if (fft_rank != c->sLPCrossover.rank())
+                {
+                    c->sLPCrossover.init(fft_rank, meta::mb_ringmod_sc::BANDS_MAX);
+                    c->sLPScCrossover.init(fft_rank, meta::mb_ringmod_sc::BANDS_MAX);
+                    for (size_t j=0; j<meta::mb_ringmod_sc::BANDS_MAX; ++j)
+                    {
+                        c->sLPCrossover.set_handler(j, process_band, this, c);
+                        c->sLPScCrossover.set_handler(j, process_sc_band, this, c);
+                    }
+                    c->sLPCrossover.set_phase(float(i) / nChannels);
+                    c->sLPScCrossover.set_phase(float(i) / nChannels);
+                }
 
                 c->sBypass.init(sr);
                 c->sInDelay.init(in_max_delay);
@@ -502,22 +516,8 @@ namespace lsp
                 c->sDryDelay.init(fft_max_delay);
                 c->sCrossover.set_sample_rate(sr);
                 c->sScCrossover.set_sample_rate(sr);
-                c->sFFTCrossover.set_sample_rate(sr);
-                c->sFFTScCrossover.set_sample_rate(sr);
-
-                // Need to re-initialize FFT crossovers?
-                if (fft_rank != c->sFFTCrossover.rank())
-                {
-                    c->sFFTCrossover.init(fft_rank, meta::mb_ringmod_sc::BANDS_MAX);
-                    c->sFFTScCrossover.init(fft_rank, meta::mb_ringmod_sc::BANDS_MAX);
-                    for (size_t j=0; j<meta::mb_ringmod_sc::BANDS_MAX; ++j)
-                    {
-                        c->sFFTCrossover.set_handler(j, process_band, this, c);
-                        c->sFFTScCrossover.set_handler(j, process_sc_band, this, c);
-                    }
-                    c->sFFTCrossover.set_phase(float(i) / nChannels);
-                    c->sFFTScCrossover.set_phase(float(i) / nChannels);
-                }
+                c->sLPCrossover.set_sample_rate(sr);
+                c->sLPScCrossover.set_sample_rate(sr);
 
                 for (size_t j=0; j<meta::mb_ringmod_sc::BANDS_MAX; ++j)
                 {
@@ -603,10 +603,12 @@ namespace lsp
         {
             switch (slope)
             {
-                case 0: return dspu::CROSS_SLOPE_LR2;
-                case 1: return dspu::CROSS_SLOPE_LR4;
-                case 2: return dspu::CROSS_SLOPE_LR8;
-                case 3: return dspu::CROSS_SLOPE_LR12;
+                case meta::mb_ringmod_sc::SLOPE_6DBO:   return dspu::CROSS_SLOPE_6DBO;
+                case meta::mb_ringmod_sc::SLOPE_12DBO:  return dspu::CROSS_SLOPE_12DBO;
+                case meta::mb_ringmod_sc::SLOPE_18DBO:  return dspu::CROSS_SLOPE_18DBO;
+                case meta::mb_ringmod_sc::SLOPE_24DBO:  return dspu::CROSS_SLOPE_24DBO;
+                case meta::mb_ringmod_sc::SLOPE_48DBO:  return dspu::CROSS_SLOPE_48DBO;
+                case meta::mb_ringmod_sc::SLOPE_72DBO:  return dspu::CROSS_SLOPE_72DBO;
                 default: break;
             }
             return dspu::CROSS_SLOPE_OFF;
@@ -616,10 +618,12 @@ namespace lsp
         {
             switch (slope)
             {
-                case 0: return -12.0f;
-                case 1: return -24.0f;
-                case 2: return -48.0f;
-                case 3: return -72.0f;
+                case meta::mb_ringmod_sc::SLOPE_6DBO:   return -6.0f;
+                case meta::mb_ringmod_sc::SLOPE_12DBO:  return -12.0f;
+                case meta::mb_ringmod_sc::SLOPE_18DBO:  return -18.0f;
+                case meta::mb_ringmod_sc::SLOPE_24DBO:  return -24.0f;
+                case meta::mb_ringmod_sc::SLOPE_48DBO:  return -48.0f;
+                case meta::mb_ringmod_sc::SLOPE_72DBO:  return -72.0f;
                 default: break;
             }
             return 0.0f;
@@ -657,13 +661,12 @@ namespace lsp
                     channel_t *c        = &vChannels[i];
                     c->sInDelay.clear();
                     c->sScDelay.clear();
-                    c->sFFTCrossover.clear();
-                    c->sFFTScCrossover.clear();
+                    c->sLPCrossover.clear();
+                    c->sLPScCrossover.clear();
                 }
             }
 
             // Update analyzer parameters
-            bool has_active_channels = false;
             for (size_t i=0; i<nChannels; ++i)
             {
                 channel_t * const c = &vChannels[i];
@@ -673,15 +676,12 @@ namespace lsp
                     const bool fft  = c->pFft[j]->value() >= 0.5f;
                     c->bFft[j]      = fft;
                     sAnalyzer.enable_channel(i*MTR_TOTAL + j, fft);
-                    if (fft)
-                        has_active_channels     = true;
                 }
             }
 
             sAnalyzer.set_reactivity(pReactivity->value());
             if (pShift != NULL)
                 sAnalyzer.set_shift(pShift->value() * 100.0f);
-            sAnalyzer.set_activity(has_active_channels > 0);
 
             // Update analyzer
             if (sAnalyzer.needs_reconfiguration())
@@ -736,34 +736,29 @@ namespace lsp
                 {
                     channel_t * const c = &vChannels[i];
 
-                    for (size_t j=0; j<meta::mb_ringmod_sc::BANDS_MAX; ++j)
+                    for (size_t j=1; j<meta::mb_ringmod_sc::BANDS_MAX; ++j)
                     {
-                        band_t * const b    = &vBands[j];
+                        // Configure split point
+                        band_t * const b        = &vBands[j];
+                        const float slope       = (b->bActive) ? fft_slope : 0.0f;
+                        const size_t spi        = j - 1;
 
-                        c->sFFTCrossover.enable_band(j, b->bActive);
-                        c->sFFTScCrossover.enable_band(j, b->bActive);
-                        if (b->bActive)
-                        {
-                            const bool lpf_on   = b->fFreqEnd < fSampleRate * 0.5f;
-                            const bool hpf_on   = b->fFreqStart > 0.0f;
+                        c->sLPCrossover.set_slope(spi, slope);
+                        c->sLPCrossover.set_frequency(spi, b->fFreqStart);
 
-                            c->sFFTCrossover.set_lpf(j, b->fFreqEnd, fft_slope, lpf_on);
-                            c->sFFTCrossover.set_hpf(j, b->fFreqStart, fft_slope, hpf_on);
-
-                            c->sFFTScCrossover.set_lpf(j, b->fFreqEnd, fft_slope, lpf_on);
-                            c->sFFTScCrossover.set_hpf(j, b->fFreqStart, fft_slope, hpf_on);
-                        }
+                        c->sLPScCrossover.set_slope(spi, slope);
+                        c->sLPScCrossover.set_frequency(spi, b->fFreqStart);
                     }
 
-                    if (c->sFFTCrossover.needs_update())
+                    if (c->sLPCrossover.needs_update())
                     {
                         bUpdFilters         = true;
-                        c->sFFTCrossover.update_settings();
+                        c->sLPCrossover.update_settings();
                     }
-                    if (c->sFFTScCrossover.needs_update())
+                    if (c->sLPScCrossover.needs_update())
                     {
                         bUpdFilters         = true;
-                        c->sFFTScCrossover.update_settings();
+                        c->sLPScCrossover.update_settings();
                     }
                 }
             }
@@ -782,12 +777,9 @@ namespace lsp
                     if (b->bActive)
                     {
                         if (nMode == MODE_IIR)
-                        {
-                            c->sCrossover.freq_chart(i, vBuffer, vFreqs, meta::mb_ringmod_sc::FFT_MESH_POINTS);
-                            dsp::pcomplex_mod(b->vTr, vBuffer, meta::mb_ringmod_sc::FFT_MESH_POINTS);
-                        }
+                            c->sCrossover.freq_chart(i, b->vTr, vFreqs, meta::mb_ringmod_sc::FFT_MESH_POINTS);
                         else
-                            c->sFFTCrossover.freq_chart(i, b->vTr, vFreqs, meta::mb_ringmod_sc::FFT_MESH_POINTS);
+                            c->sLPCrossover.freq_chart(i, b->vTr, vFreqs, meta::mb_ringmod_sc::FFT_MESH_POINTS);
                     }
                     else
                         dsp::fill_zero(b->vTr, meta::mb_ringmod_sc::FFT_MESH_POINTS);
@@ -843,7 +835,7 @@ namespace lsp
             bOutSc                  = pOutSc->value() >= 0.5f;
 
             // Apply latency compensation and report latency
-            const size_t xover_latency = (nMode == MODE_SPM) ? vChannels[0].sFFTCrossover.latency() : 0;
+            const size_t xover_latency = (nMode == MODE_SPM) ? vChannels[0].sLPCrossover.latency() : 0;
 
             for (size_t i=0; i<nChannels; ++i)
             {
@@ -859,6 +851,13 @@ namespace lsp
 
         void mb_ringmod_sc::ui_activated()
         {
+            sAnalyzer.set_activity(true);
+            bSyncFilters        = true;
+        }
+
+        void mb_ringmod_sc::ui_deactivated()
+        {
+            sAnalyzer.set_activity(false);
             bSyncFilters        = true;
         }
 
@@ -1047,13 +1046,13 @@ namespace lsp
             // Process sidechain envelope for each band
             for (size_t i=0; i<nChannels; ++i)
             {
-                channel_t *c        = &vChannels[i];
+                channel_t * const c = &vChannels[i];
                 dsp::fill_zero(c->vSidechain, samples);
 
                 if (nMode == MODE_IIR)
                     c->sScCrossover.process(c->vScPtr, samples);
                 else
-                    c->sFFTScCrossover.process(c->vScPtr, samples);
+                    c->sLPScCrossover.process(c->vScPtr, samples);
             }
 
             // Perform stereo linking between left and right channels for each band
@@ -1236,7 +1235,7 @@ namespace lsp
                 if (nMode == MODE_IIR)
                     c->sCrossover.process(c->vTmpIn, samples);
                 else
-                    c->sFFTCrossover.process(c->vTmpIn, samples);
+                    c->sLPCrossover.process(c->vTmpIn, samples);
 
                 // Add sidechain to output
                 if (bOutSc)
@@ -1358,25 +1357,51 @@ namespace lsp
                 size_t emitted      = 0;
                 channel_t * const c = &vChannels[i];
 
-                // Output gain
-                for (size_t j=0; j<meta::mb_ringmod_sc::BANDS_MAX; ++j)
+                // Compute the output gain curve
+                if (nMode == MODE_IIR)
                 {
-                    band_t * const b    = &vBands[j];
-                    if (!b->bActive)
-                        continue;
-                    if (b->bMute)
-                        continue;
+                    for (size_t j=0; j<meta::mb_ringmod_sc::BANDS_MAX; ++j)
+                    {
+                        band_t * const b    = &vBands[j];
+                        if (!b->bActive)
+                            continue;
+                        if (b->bMute)
+                            continue;
 
-                    ch_band_t * const cb= &c->vBands[j];
-                    if ((emitted++) > 0)
-                        dsp::fmadd_k3(c->vGain, b->vTr, cb->fReduction, meta::mb_ringmod_sc::FFT_MESH_POINTS);
+                        ch_band_t * const cb= &c->vBands[j];
+                        if ((emitted++) > 0)
+                            dsp::fmadd_k3(vBuffer, b->vTr, cb->fReduction, meta::mb_ringmod_sc::FFT_MESH_POINTS * 2);
+                        else
+                            dsp::mul_k3(vBuffer, b->vTr, cb->fReduction, meta::mb_ringmod_sc::FFT_MESH_POINTS * 2);
+                    }
+
+                    // Clear if there was no data at the input
+                    if (emitted > 0)
+                        dsp::pcomplex_mod(c->vGain, vBuffer, meta::mb_ringmod_sc::FFT_MESH_POINTS);
                     else
-                        dsp::mul_k3(c->vGain, b->vTr, cb->fReduction, meta::mb_ringmod_sc::FFT_MESH_POINTS);
+                        dsp::fill_zero(c->vGain, meta::mb_ringmod_sc::FFT_MESH_POINTS);
                 }
+                else
+                {
+                    for (size_t j=0; j<meta::mb_ringmod_sc::BANDS_MAX; ++j)
+                    {
+                        band_t * const b    = &vBands[j];
+                        if (!b->bActive)
+                            continue;
+                        if (b->bMute)
+                            continue;
 
-                // Clear if there was no data at the input
-                if (emitted <= 0)
-                    dsp::fill_zero(c->vGain, meta::mb_ringmod_sc::FFT_MESH_POINTS);
+                        ch_band_t * const cb= &c->vBands[j];
+                        if ((emitted++) > 0)
+                            dsp::fmadd_k3(c->vGain, b->vTr, cb->fReduction, meta::mb_ringmod_sc::FFT_MESH_POINTS);
+                        else
+                            dsp::mul_k3(c->vGain, b->vTr, cb->fReduction, meta::mb_ringmod_sc::FFT_MESH_POINTS);
+                    }
+
+                    // Clear if there was no data at the input
+                    if (emitted <= 0)
+                        dsp::fill_zero(c->vGain, meta::mb_ringmod_sc::FFT_MESH_POINTS);
+                }
             }
 
             // Request for redraw
@@ -1407,7 +1432,10 @@ namespace lsp
                     v                   = mesh->pvData[index++];
                     band_t * const b    = &vBands[i];
 
-                    dsp::copy(&v[2], b->vTr, meta::mb_ringmod_sc::FFT_MESH_POINTS);
+                    if (nMode == MODE_IIR)
+                        dsp::pcomplex_mod(&v[2], b->vTr, meta::mb_ringmod_sc::FFT_MESH_POINTS);
+                    else
+                        dsp::copy(&v[2], b->vTr, meta::mb_ringmod_sc::FFT_MESH_POINTS);
 
                     v[0]                = GAIN_AMP_M_INF_DB;
                     v[1]                = v[2];
@@ -1590,8 +1618,8 @@ namespace lsp
                     v->write_object("sDryDelay", &c->sDryDelay);
                     v->write_object("sCrossover", &c->sCrossover);
                     v->write_object("sScCrossover", &c->sScCrossover);
-                    v->write_object("sFFTCrossover", &c->sFFTCrossover);
-                    v->write_object("sFFTScCrossover", &c->sFFTScCrossover);
+                    v->write_object("sLPCrossover", &c->sLPCrossover);
+                    v->write_object("sLPScCrossover", &c->sLPScCrossover);
 
                     v->begin_array("vBands", c->vBands, meta::mb_ringmod_sc::BANDS_MAX);
                     for (size_t j=0; j<meta::mb_ringmod_sc::BANDS_MAX; ++j)
